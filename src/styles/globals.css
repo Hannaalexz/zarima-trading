@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Zarima Light Theme: White + Light Green (NO dark green!) */
+    --background: #F4F7F6;
+    --surface: #FFFFFF;
+    --surface-elevated: #F0FDF4;
+    --card: rgba(255, 255, 255, 0.90);
+    --card-foreground: #17251D;
+    
+    --foreground: #17251D;
+    --muted: #DCFCE7;
+    --muted-foreground: #4B6354;
+    
+    --border: rgba(210, 235, 218, 0.85);
+    --input: #DCFCE7;
+    --ring: #22C55E;
+
+    /* The only shared color is LIGHT GREEN between both themes */
+    --primary: #22C55E;
+    --primary-foreground: #060B08;
+    
+    --accent: #22C55E;
+    --accent-foreground: #060B08;
+
+    /* Sidebar in Light Theme: Frosted glass container with light green active indicator */
+    --sidebar-bg: rgba(255, 255, 255, 0.80);
+    --sidebar-fg: #17251D;
+    --sidebar-muted: #5C7265;
+    --sidebar-active: #22C55E;
+    --sidebar-border: rgba(255, 255, 255, 0.85);
+
+    /* Restrained status indicators + Electric Orange accent */
+    --status-success: #22C55E;
+    --status-warning: #FF6B00;
+    --electric-orange: #FF6B00;
+    --status-danger: #B91C1C;
+    --status-info: #0284C7;
+  }
+
+  .dark {
+    /* Zarima Dark Theme: Deep near-black + rich Light Green */
+    --background: #060B08;
+    --surface: #0E1712;
+    --surface-elevated: #14221A;
+    --card: #0E1712;
+    --card-foreground: #F0F5F1;
+    
+    --foreground: #F0F5F1;
+    --muted: #15241C;
+    --muted-foreground: #8EA696;
+    
+    --border: #1A3323;
+    --input: #1A3323;
+    --ring: #22C55E;
+
+    /* The only shared color is LIGHT GREEN between both themes */
+    --primary: #22C55E;
+    --primary-foreground: #060B08;
+    
+    --accent: #22C55E;
+    --accent-foreground: #060B08;
+
+    /* Sidebar in Dark Theme: Deep near-black & dark glass */
+    --sidebar-bg: rgba(12, 21, 16, 0.85);
+    --sidebar-fg: #F0F5F1;
+    --sidebar-muted: #8EA696;
+    --sidebar-active: #22C55E;
+    --sidebar-border: #1A3323;
+
+    /* Restrained status indicators in dark mode */
+    --status-success: #22C55E;
+    --status-warning: #F59E0B;
+    --status-danger: #EF4444;
+    --status-info: #38BDF8;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.012em;
+    min-height: 100vh;
+    /* Light theme ambient background: luminous light green aura with clean crisp white center */
+    background-image: 
+      radial-gradient(ellipse 80% 60% at 10% 8%, rgba(187, 247, 208, 0.75), transparent 70%),
+      radial-gradient(ellipse 70% 50% at 92% 12%, rgba(220, 252, 231, 0.70), transparent 70%),
+      radial-gradient(ellipse 65% 55% at 50% 50%, rgba(244, 247, 246, 0.85), transparent 75%),
+      radial-gradient(ellipse 70% 55% at 15% 90%, rgba(187, 247, 208, 0.65), transparent 70%),
+      radial-gradient(ellipse 75% 60% at 88% 85%, rgba(220, 252, 231, 0.60), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  .dark body, body.dark {
+    background-color: var(--background);
+    color: var(--foreground);
+    /* Dark theme atmospheric light green glow - enhanced for richer light green presence */
+    background-image: 
+      radial-gradient(ellipse 80% 60% at 25% 10%, rgba(34, 197, 94, 0.20), transparent 70%),
+      radial-gradient(ellipse 65% 50% at 85% 15%, rgba(34, 197, 94, 0.14), transparent 65%),
+      radial-gradient(ellipse 75% 65% at 50% 90%, rgba(34, 197, 94, 0.18), transparent 70%);
+    background-attachment: fixed;
+  }
+}
+
+/* Subtle modern scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
