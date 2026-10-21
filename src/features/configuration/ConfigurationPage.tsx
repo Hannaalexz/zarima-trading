@@ -566,172 +566,115 @@ export const ConfigurationPage: React.FC = () => {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Page Header */}
       <PageHeader
-        title="Master Configuration & Data Setup"
-        description="Add and maintain foundational ERP master records: haulage trucks, staff & drivers, customers, suppliers, cement grades, and warehouse depots."
+        title="Master Configuration"
+        description="Add and maintain foundational ERP master records: trucks, staff & drivers, customers, suppliers, cement types, and warehouse depots."
         breadcrumbs={[
-          { label: 'Configuration & Master Data' },
+          { label: 'Master Configuration' },
         ]}
       />
 
-      {/* Top Stat Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        <button
-          onClick={() => handleTabChange('trucks')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            activeTab === 'trucks'
-              ? 'bg-forest/10 border-forest text-forest shadow-md'
-              : 'bg-surface/80 border-border hover:border-forest/50 text-foreground'
-          }`}
-        >
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Fleet Trucks</span>
-            <Truck className="w-4 h-4 text-forest" />
-          </div>
-          <div className="text-xl font-bold font-mono">{trucks.length} Units</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-            {formatQuantity(totalHaulageCapacityQuintals)} Qtl Payload
-          </div>
-        </button>
-
-        <button
-          onClick={() => handleTabChange('staff')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            activeTab === 'staff'
-              ? 'bg-forest/10 border-forest text-forest shadow-md'
-              : 'bg-surface/80 border-border hover:border-forest/50 text-foreground'
-          }`}
-        >
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Staff & Drivers</span>
-            <Users className="w-4 h-4 text-forest" />
-          </div>
-          <div className="text-xl font-bold font-mono">{uniqueStaffList.length} Personnel</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
-            {drivers.length} Heavy Drivers Enrolled
-          </div>
-        </button>
-
-        <button
-          onClick={() => handleTabChange('partners')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            activeTab === 'partners'
-              ? 'bg-forest/10 border-forest text-forest shadow-md'
-              : 'bg-surface/80 border-border hover:border-forest/50 text-foreground'
-          }`}
-        >
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Partners</span>
-            <Building2 className="w-4 h-4 text-forest" />
-          </div>
-          <div className="text-xl font-bold font-mono">{customers.length + suppliers.length} Entities</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
-            {customers.length} Clients · {suppliers.length} Plants
-          </div>
-        </button>
-
-        <button
-          onClick={() => handleTabChange('products')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            activeTab === 'products'
-              ? 'bg-forest/10 border-forest text-forest shadow-md'
-              : 'bg-surface/80 border-border hover:border-forest/50 text-foreground'
-          }`}
-        >
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Cement & Cargo</span>
-            <Boxes className="w-4 h-4 text-forest" />
-          </div>
-          <div className="text-xl font-bold font-mono">{products.length} Products</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
-            OPC, PPC, Bulk & Steel
-          </div>
-        </button>
-
-        <button
-          onClick={() => handleTabChange('depots')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            activeTab === 'depots'
-              ? 'bg-forest/10 border-forest text-forest shadow-md'
-              : 'bg-surface/80 border-border hover:border-forest/50 text-foreground'
-          }`}
-        >
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Warehouses</span>
-            <Warehouse className="w-4 h-4 text-forest" />
-          </div>
-          <div className="text-xl font-bold font-mono">{depots.length} Depots</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-            {formatQuantity(totalDepotCapacityQuintals)} Qtl Capacity
-          </div>
-        </button>
-      </div>
-
-      {/* Main Tab Pill Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-surface-elevated/80 rounded-2xl border border-border">
+      {/* Unified Sleek Navigation Bar & Contextual Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 bg-surface/90 border border-border rounded-2xl shadow-subtle backdrop-blur-md">
+        {/* Single Clean Segmented Tab Navigation */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-0.5">
           <button
             onClick={() => handleTabChange('trucks')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'trucks'
-                ? 'bg-forest text-white shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-forest text-white shadow-sm font-bold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
             }`}
           >
             <Truck className="w-4 h-4" />
-            <span>Commercial Trucks ({trucks.length})</span>
+            <span>Commercial Trucks</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'trucks' ? 'bg-white/20 text-white' : 'bg-surface-elevated text-muted-foreground'
+              }`}
+            >
+              {trucks.length}
+            </span>
           </button>
 
           <button
             onClick={() => handleTabChange('staff')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'staff'
-                ? 'bg-forest text-white shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-forest text-white shadow-sm font-bold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Staff & Drivers ({uniqueStaffList.length})</span>
+            <span>Staff &amp; Drivers</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'staff' ? 'bg-white/20 text-white' : 'bg-surface-elevated text-muted-foreground'
+              }`}
+            >
+              {uniqueStaffList.length}
+            </span>
           </button>
 
           <button
             onClick={() => handleTabChange('partners')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'partners'
-                ? 'bg-forest text-white shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-forest text-white shadow-sm font-bold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
             }`}
           >
             <Building2 className="w-4 h-4" />
-            <span>Customers & Suppliers ({customers.length + suppliers.length})</span>
+            <span>Customers &amp; Suppliers</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'partners' ? 'bg-white/20 text-white' : 'bg-surface-elevated text-muted-foreground'
+              }`}
+            >
+              {customers.length + suppliers.length}
+            </span>
           </button>
 
           <button
             onClick={() => handleTabChange('products')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'products'
-                ? 'bg-forest text-white shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-forest text-white shadow-sm font-bold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
             }`}
           >
             <Boxes className="w-4 h-4" />
-            <span>Cement & Cargo Catalog ({products.length})</span>
+            <span>Cement &amp; Cargo</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'products' ? 'bg-white/20 text-white' : 'bg-surface-elevated text-muted-foreground'
+              }`}
+            >
+              {products.length}
+            </span>
           </button>
 
           <button
             onClick={() => handleTabChange('depots')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'depots'
-                ? 'bg-forest text-white shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-forest text-white shadow-sm font-bold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
             }`}
           >
             <Warehouse className="w-4 h-4" />
-            <span>Depots & Warehouses ({depots.length})</span>
+            <span>Depots &amp; Warehouses</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'depots' ? 'bg-white/20 text-white' : 'bg-surface-elevated text-muted-foreground'
+              }`}
+            >
+              {depots.length}
+            </span>
           </button>
         </div>
 
-        {/* Action Button Corresponding to Active Tab */}
-        <div>
+        {/* Primary Action Button for Selected Tab */}
+        <div className="flex-shrink-0 px-1">
           {activeTab === 'trucks' && (
             <button
               onClick={() => {
@@ -743,7 +686,7 @@ export const ConfigurationPage: React.FC = () => {
                 setTruckOwnership('Zarima Owned')
                 setIsTruckModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Add Commercial Truck</span>
@@ -761,7 +704,7 @@ export const ConfigurationPage: React.FC = () => {
                 setStaffAccountNo('')
                 setIsStaffModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Add Staff / Driver</span>
@@ -779,7 +722,7 @@ export const ConfigurationPage: React.FC = () => {
                 setCustCreditLimit(3000000)
                 setIsCustomerModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Add Customer</span>
@@ -797,10 +740,10 @@ export const ConfigurationPage: React.FC = () => {
                 setSupPhone('')
                 setIsSupplierModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Factory / Supplier</span>
+              <span>Add Factory Supplier</span>
             </button>
           )}
 
@@ -817,7 +760,7 @@ export const ConfigurationPage: React.FC = () => {
                 setProdDesc('')
                 setIsProductModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Add Cement Type / Cargo</span>
@@ -835,7 +778,7 @@ export const ConfigurationPage: React.FC = () => {
                 setDepotManager('')
                 setIsDepotModalOpen(true)
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Add Warehouse Depot</span>
@@ -849,6 +792,21 @@ export const ConfigurationPage: React.FC = () => {
       {/* =================================================================== */}
       {activeTab === 'trucks' && (
         <div className="space-y-4">
+          {/* Quick Context Summary */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-surface-elevated/60 border border-border/70 rounded-xl text-xs">
+            <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+              <span>Total Fleet: <strong className="text-foreground font-mono">{trucks.length}</strong> Trucks</span>
+              <span>•</span>
+              <span>Available: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{trucks.filter(t => t.operationalStatus === 'Available').length}</strong></span>
+              <span>•</span>
+              <span>Active Trips: <strong className="text-blue-600 dark:text-blue-400 font-mono">{trucks.filter(t => t.operationalStatus === 'Active Trip').length}</strong></span>
+              <span>•</span>
+              <span>Maintenance: <strong className="text-amber-600 dark:text-amber-400 font-mono">{trucks.filter(t => t.operationalStatus === 'In Maintenance').length}</strong></span>
+            </div>
+            <div className="text-muted-foreground font-mono">
+              Total Payload: <strong className="text-forest font-bold">{formatQuantity(totalHaulageCapacityQuintals)} Qtl</strong> ({totalHaulageCapacityQuintals / 10} Tons)
+            </div>
+          </div>
           {/* Search & Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-surface/90 border border-border rounded-2xl">
             <div className="relative flex-1 min-w-[240px]">
@@ -988,6 +946,22 @@ export const ConfigurationPage: React.FC = () => {
       {/* =================================================================== */}
       {activeTab === 'staff' && (
         <div className="space-y-4">
+          {/* Quick Context Summary */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-surface-elevated/60 border border-border/70 rounded-xl text-xs">
+            <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+              <span>Total Personnel: <strong className="text-foreground font-mono">{uniqueStaffList.length}</strong></span>
+              <span>•</span>
+              <span>Heavy Drivers: <strong className="text-blue-600 dark:text-blue-400 font-mono">{drivers.length}</strong></span>
+              <span>•</span>
+              <span>Transport &amp; Fleet: <strong className="text-foreground font-mono">{uniqueStaffList.filter(s => s.businessActivity === 'Transport').length}</strong></span>
+              <span>•</span>
+              <span>Cement Division: <strong className="text-foreground font-mono">{uniqueStaffList.filter(s => s.businessActivity === 'Cement').length}</strong></span>
+            </div>
+            <div className="text-muted-foreground font-mono">
+              Monthly Base Payroll: <strong className="text-forest font-bold">{formatCurrency(uniqueStaffList.reduce((acc, s) => acc + (s.baseSalaryETB || s.basicSalaryETB || 0), 0))}</strong>
+            </div>
+          </div>
+
           {/* Search & Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-surface/90 border border-border rounded-2xl">
             <div className="relative flex-1 min-w-[240px]">
@@ -1369,6 +1343,22 @@ export const ConfigurationPage: React.FC = () => {
       {/* =================================================================== */}
       {activeTab === 'products' && (
         <div className="space-y-4">
+          {/* Quick Context Summary */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-surface-elevated/60 border border-border/70 rounded-xl text-xs">
+            <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+              <span>Trade Catalog: <strong className="text-foreground font-mono">{products.length}</strong> Products</span>
+              <span>•</span>
+              <span>Cement Grades: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{products.filter(p => p.category === 'Cement').length}</strong></span>
+              <span>•</span>
+              <span>Steel &amp; Rebar: <strong className="text-blue-600 dark:text-blue-400 font-mono">{products.filter(p => p.category === 'Steel & Rebar').length}</strong></span>
+              <span>•</span>
+              <span>Aggregates: <strong className="text-purple-600 dark:text-purple-400 font-mono">{products.filter(p => p.category === 'Aggregates').length}</strong></span>
+            </div>
+            <div className="text-muted-foreground font-mono text-[11px]">
+              Available for Invoices, Dispatches &amp; Stock Intake
+            </div>
+          </div>
+
           {/* Search & Category Filter */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-surface/90 border border-border rounded-2xl">
             <div className="relative flex-1 min-w-[240px]">
@@ -1508,6 +1498,20 @@ export const ConfigurationPage: React.FC = () => {
       {/* =================================================================== */}
       {activeTab === 'depots' && (
         <div className="space-y-4">
+          {/* Quick Context Summary */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-surface-elevated/60 border border-border/70 rounded-xl text-xs">
+            <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+              <span>Storage Network: <strong className="text-foreground font-mono">{depots.length}</strong> Depots</span>
+              <span>•</span>
+              <span>Central Kality: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">30,000 Qtl</strong></span>
+              <span>•</span>
+              <span>Regional Terminals: <strong className="text-blue-600 dark:text-blue-400 font-mono">{depots.length - 1} Transit Hubs</strong></span>
+            </div>
+            <div className="text-muted-foreground font-mono">
+              Total Storage Capacity: <strong className="text-forest font-bold">{formatQuantity(totalDepotCapacityQuintals)} Qtl</strong> ({totalDepotCapacityQuintals / 10} Tons)
+            </div>
+          </div>
+
           {/* Search Bar */}
           <div className="flex items-center justify-between gap-3 p-3 bg-surface/90 border border-border rounded-2xl">
             <div className="relative flex-1 max-w-md">
