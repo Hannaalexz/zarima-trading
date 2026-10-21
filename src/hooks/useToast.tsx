@@ -10,6 +10,7 @@ export interface Toast {
 interface ToastContextType {
   toasts: Toast[]
   toast: (options: { title: string; description?: string; type?: 'success' | 'info' | 'warning' | 'error' }) => void
+  addToast: (options: { title: string; description?: string; type?: 'success' | 'info' | 'warning' | 'error' }) => void
   dismiss: (id: string) => void
 }
 
@@ -33,7 +34,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [dismiss])
 
   return (
-    <ToastContext.Provider value={{ toasts, toast, dismiss }}>
+    <ToastContext.Provider value={{ toasts, toast, addToast: toast, dismiss }}>
       {children}
       {/* Toast container overlay */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">

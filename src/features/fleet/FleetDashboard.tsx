@@ -5,7 +5,6 @@ import {
   PackageCheck,
   Wrench,
   Fuel,
-  Navigation,
   TrendingUp,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -41,11 +40,11 @@ export const FleetDashboard: React.FC = () => {
               <span>Dispatch Delivery</span>
             </Link>
             <Link
-              to="/fleet/gps"
+              to="/fleet/trucks"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-surface/90 border border-border hover:bg-surface-elevated text-foreground transition-colors shadow-subtle"
             >
-              <Navigation className="w-3.5 h-3.5 text-forest dark:text-forest-vibrant" />
-              <span>GPS Telemetry</span>
+              <Truck className="w-3.5 h-3.5 text-forest dark:text-forest-vibrant" />
+              <span>Fleet Inventory</span>
             </Link>
           </div>
         }

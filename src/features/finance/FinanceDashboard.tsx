@@ -85,7 +85,7 @@ export const FinanceDashboard: React.FC = () => {
         <MetricCard
           title="Total Receivables (AR)"
           value={formatCurrency(totalReceivables, { compact: true })}
-          subtitle="Contractor trade credit"
+          subtitle="Customer trade credit"
           trend={{ value: 3.5, isPositiveGood: false }}
           icon={<ArrowUpRight className="w-5 h-5 text-forest dark:text-forest-vibrant" />}
         />

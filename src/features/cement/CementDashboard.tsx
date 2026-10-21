@@ -27,7 +27,7 @@ export const CementDashboard: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Cement Trading"
-        description="Factory procurement quotas, depot inventory balances, and contractor sales distribution."
+        description="Factory procurement quotas, Addis Central Depot inventory balances, and commercial customer sales distribution."
         actions={
           <div className="flex items-center gap-2">
             <Link
@@ -35,7 +35,7 @@ export const CementDashboard: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Purchase Order</span>
+              <span>Purchases Invoice</span>
             </Link>
             <Link
               to="/cement/sales"
@@ -65,7 +65,7 @@ export const CementDashboard: React.FC = () => {
           icon={<ShoppingBag className="w-4 h-4" />}
         />
         <MetricCard
-          title="Contractor Credit"
+          title="Customer Receivables"
           value={formatCurrency(totalCustomerReceivables, { compact: true })}
           subtitle="Trade receivables"
           trend={{ value: 2.1, isPositiveGood: false }}
@@ -86,13 +86,13 @@ export const CementDashboard: React.FC = () => {
         <div className="rounded-2xl border border-border bg-surface/90 backdrop-blur-md p-5 shadow-card space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">
-              Depot Stock Levels
+              Addis Depot Stock Levels
             </h3>
             <Link
               to="/cement/inventory"
               className="text-xs text-forest dark:text-forest-vibrant font-semibold hover:underline"
             >
-              All Depots
+              Addis Central Depot
             </Link>
           </div>
 
@@ -140,7 +140,7 @@ export const CementDashboard: React.FC = () => {
         <div className="lg:col-span-2 rounded-2xl border border-border bg-surface/90 backdrop-blur-md p-5 shadow-card space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">
-              Recent Factory Purchases
+              Recent Purchases Invoices
             </h3>
             <Link
               to="/cement/purchases"
@@ -154,7 +154,7 @@ export const CementDashboard: React.FC = () => {
             <table className="w-full text-xs text-left">
               <thead>
                 <tr className="border-b border-border text-muted-foreground font-semibold">
-                  <th className="pb-2">PO #</th>
+                  <th className="pb-2">Invoice #</th>
                   <th className="pb-2">Supplier Plant</th>
                   <th className="pb-2">Grade</th>
                   <th className="pb-2">Qty (Qtl)</th>
@@ -167,7 +167,7 @@ export const CementDashboard: React.FC = () => {
                 {purchases.map((po) => (
                   <tr key={po.id} className="hover:bg-surface-elevated/40">
                     <td className="py-2.5 font-mono font-semibold text-foreground">
-                      {po.purchaseOrderNo}
+                      {po.purchaseInvoiceNo || po.purchaseOrderNo}
                     </td>
                     <td className="py-2.5 text-foreground font-medium truncate max-w-[150px]">
                       {po.supplierName}

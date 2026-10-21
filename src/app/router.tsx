@@ -14,16 +14,19 @@ import { DeliveriesPage } from '@/features/fleet/DeliveriesPage'
 import { DriversPage } from '@/features/fleet/DriversPage'
 import { MaintenancePage } from '@/features/fleet/MaintenancePage'
 import { FuelExpensesPage } from '@/features/fleet/FuelExpensesPage'
-import { GPSTrackingPage } from '@/features/fleet/GPSTrackingPage'
 import { FinanceDashboard } from '@/features/finance/FinanceDashboard'
 import { BankAccountsPage } from '@/features/finance/BankAccountsPage'
 import { TransactionsPage } from '@/features/finance/TransactionsPage'
 import { ReconciliationPage } from '@/features/finance/ReconciliationPage'
+import { MemberExpensesPage } from '@/features/finance/MemberExpensesPage'
 import { PayrollPage } from '@/features/finance/PayrollPage'
 import { ReceivablesPage } from '@/features/finance/ReceivablesPage'
 import { PayablesPage } from '@/features/finance/PayablesPage'
 import { ReportsPage } from '@/features/finance/ReportsPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import { ConfigurationPage } from '@/features/configuration/ConfigurationPage'
+import { LoginPage } from '@/features/auth/LoginPage'
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
 
 export const router = createBrowserRouter([
   {
@@ -31,8 +34,16 @@ export const router = createBrowserRouter([
     element: <LandingPage />,
   },
   {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <ProtectedRoute>
+        <AppShell />
+      </ProtectedRoute>
+    ),
     children: [
       {
         path: 'dashboard',
@@ -90,7 +101,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'fleet/gps',
-        element: <GPSTrackingPage />,
+        element: <Navigate to="/fleet/deliveries" replace />,
       },
       // Finance & Accounting Routes
       {
@@ -110,6 +121,10 @@ export const router = createBrowserRouter([
         element: <ReconciliationPage />,
       },
       {
+        path: 'finance/member-expenses',
+        element: <MemberExpensesPage />,
+      },
+      {
         path: 'finance/payroll',
         element: <PayrollPage />,
       },
@@ -124,6 +139,11 @@ export const router = createBrowserRouter([
       {
         path: 'finance/reports',
         element: <ReportsPage />,
+      },
+      // Master Data & Configuration
+      {
+        path: 'configuration',
+        element: <ConfigurationPage />,
       },
       // System Settings
       {

@@ -56,7 +56,6 @@ export const TrucksPage: React.FC = () => {
       operationalStatus: 'Available',
       mileageKm: Number(mileageKm),
       lastServiceDate: new Date().toISOString().split('T')[0],
-      gpsStatus: 'Online',
     })
 
     toast({
@@ -165,10 +164,9 @@ export const TrucksPage: React.FC = () => {
                   <span className="font-semibold text-foreground">{t.driverName}</span>
                 </div>
                 <div className="flex justify-between items-center pt-1 border-t border-border/50">
-                  <span className="text-muted-foreground">GPS Telemetry:</span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Online
+                  <span className="text-muted-foreground">Last Serviced:</span>
+                  <span className="font-mono text-[11px] text-foreground font-medium">
+                    {t.lastServiceDate || '2026-02-15'}
                   </span>
                 </div>
               </div>

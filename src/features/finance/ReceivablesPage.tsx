@@ -30,7 +30,7 @@ export const ReceivablesPage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Accounts Receivable"
-        description="Contractor trade credit, aging brackets, and pending collections."
+        description="Commercial customer trade credit, aging brackets, and pending collections."
         breadcrumbs={[
           { label: 'Finance & Accounting', href: '/finance' },
           { label: 'Receivables' },
@@ -102,7 +102,7 @@ export const ReceivablesPage: React.FC = () => {
             <thead className="bg-surface-elevated border-b border-border text-muted-foreground font-semibold">
               <tr>
                 <th className="py-3 px-4">Invoice #</th>
-                <th className="py-3 px-4">Contractor Customer</th>
+                <th className="py-3 px-4">Customer Name</th>
                 <th className="py-3 px-4">Invoice Date</th>
                 <th className="py-3 px-4">Due Date</th>
                 <th className="py-3 px-4 text-right">Invoice Total</th>

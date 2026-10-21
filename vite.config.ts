@@ -10,6 +10,41 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+    allowedHosts: ['sadly-undecided-utopia.ngrok-free.dev', '.ngrok-free.dev', '.ngrok.app', '.ngrok.io'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+  preview: {
+    host: true,
+    port: 5173,
+    allowedHosts: ['sadly-undecided-utopia.ngrok-free.dev', '.ngrok-free.dev', '.ngrok.app', '.ngrok.io'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'lucide-react',
+      'date-fns',
+      'recharts',
+      'clsx',
+      'tailwind-merge',
+      'framer-motion',
+    ],
+  },
 })
 
 

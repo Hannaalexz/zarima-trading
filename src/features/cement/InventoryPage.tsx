@@ -40,14 +40,13 @@ export const InventoryPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Depot Inventory"
-        description="Warehouse stock levels and buffer thresholds across regional depots."
+        title="Addis Ababa Central Depot Inventory"
+        description="Physical cement warehouse stock levels and buffer thresholds at Addis Ababa Central Depot (Kality Yard)."
         breadcrumbs={[
           { label: 'Cement Trading', href: '/cement' },
-          { label: 'Inventory' },
+          { label: 'Central Inventory' },
         ]}
       />
-
 
       {/* Summary KPI Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -75,15 +74,15 @@ export const InventoryPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-border bg-surface/90 backdrop-blur-md shadow-card">
+        <div className="p-4 rounded-2xl border border-[#22C55E]/30 bg-gradient-to-br from-[#22C55E]/10 via-surface to-surface shadow-card">
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Depot Locations Active
+            Primary Inventory Depot
           </div>
-          <div className="text-2xl font-bold text-forest dark:text-forest-vibrant">
-            4 Operational Yards
+          <div className="text-xl font-bold text-forest dark:text-forest-vibrant truncate">
+            Addis Ababa Central Depot
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            Addis Ababa (Kality), Adama, Mojo, Hawassa
+            Kality Yard (Single Central Distribution Store)
           </div>
         </div>
       </div>

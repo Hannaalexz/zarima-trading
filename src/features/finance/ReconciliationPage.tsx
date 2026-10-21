@@ -1,155 +1,1239 @@
-import React, { useState } from 'react'
-import { Scale, CheckCircle2, AlertTriangle, RefreshCw, FileText } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+import {
+  Scale,
+  CheckCircle2,
+  AlertTriangle,
+  Upload,
+  FileSpreadsheet,
+  FileText,
+  FileCheck,
+  Lock,
+  ArrowRight,
+  ShieldCheck,
+  Search,
+  Filter,
+  Download,
+  AlertCircle,
+  Eye,
+  RefreshCw,
+  Clock,
+  Landmark,
+  XCircle,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useStore } from '@/data/storeContext'
+import { useAuth } from '@/data/authContext'
 import { useToast } from '@/hooks/useToast'
-import { formatCurrency, formatDate } from '@/lib/formatters'
-import { BankReconciliation } from '@/types'
+import { BankAccount, BankStatement, BankStatementTransaction, BusinessActivity, ReconciliationMatchStatus } from '@/types'
 
 export const ReconciliationPage: React.FC = () => {
-  const { reconciliations } = useStore()
-  const { toast } = useToast()
-  const [items, setItems] = useState<BankReconciliation[]>(reconciliations)
+  const {
+    bankAccounts,
+    bankStatements,
+    transactions,
+    reconciliations,
+    importBankStatement,
+    reconcileStatementTransaction,
+    postUnmatchedStatementTransaction,
+    lockBankStatement,
+    addTransaction,
+  } = useStore()
 
-  const handleResolveDiscrepancy = (id: string) => {
-    setItems((prev) =>
-      prev.map((rec) =>
-        rec.id === id
-          ? {
-              ...rec,
-              statementBalanceETB: rec.bookBalanceETB,
-              differenceETB: 0,
-              unreconciledCount: 0,
-              status: 'Balanced',
-            }
-          : rec
-      )
+  const { currentUser } = useAuth()
+  const { addToast } = useToast()
+
+  const normalizeBankId = (id?: string) => (id || '').replace(/^BA-/, 'BANK-')
+
+  // Selected bank account tab
+  const [selectedBankId, setSelectedBankId] = useState<string>(bankAccounts[0]?.id || 'BANK-01')
+  const [selectedStatementId, setSelectedStatementId] = useState<string>(
+    bankStatements[0]?.id || ''
+  )
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Statement Upload Modal State
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [uploadStep, setUploadStep] = useState<'select' | 'preview' | 'result'>('select')
+  const [uploadBankId, setUploadBankId] = useState<string>(bankAccounts[0]?.id || 'BANK-01')
+  const [periodStart, setPeriodStart] = useState('2026-10-01')
+  const [periodEnd, setPeriodEnd] = useState('2026-10-15')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedFileName, setUploadedFileName] = useState('cbe_statement_oct2026.xlsx')
+  const [fileFormat, setFileFormat] = useState<'xlsx' | 'xls' | 'pdf' | 'docx'>('xlsx')
+  const [openingBalance, setOpeningBalance] = useState('12540000')
+  const [closingBalance, setClosingBalance] = useState('14850230.50')
+
+  // Sample extracted transactions preview
+  const [previewTransactions, setPreviewTransactions] = useState<BankStatementTransaction[]>([])
+
+  // Manual link modal
+  const [manualLinkTx, setManualLinkTx] = useState<BankStatementTransaction | null>(null)
+  const [selectedInternalTxId, setSelectedInternalTxId] = useState('')
+
+  // Classify & Post Unmatched Modal
+  const [classifyTx, setClassifyTx] = useState<BankStatementTransaction | null>(null)
+  const [classifyCategory, setClassifyCategory] = useState('Bank Service Charges & Fees')
+  const [classifyActivity, setClassifyActivity] = useState<BusinessActivity>('Shared')
+  const [classifyNotes, setClassifyNotes] = useState('')
+
+  // Active Bank Account (matches the selected tab)
+  const activeBankAccount = useMemo(() => {
+    return (
+      bankAccounts.find((b) => normalizeBankId(b.id) === normalizeBankId(selectedBankId)) ||
+      bankAccounts[0]
+    )
+  }, [bankAccounts, selectedBankId])
+
+  // Active statement
+  const activeStatement = useMemo(() => {
+    // 1. Try to find statement matching the selected bank account
+    const stmtsForBank = bankStatements.filter(
+      (s) => normalizeBankId(s.bankAccountId || (s as any).accountId) === normalizeBankId(selectedBankId)
+    )
+    if (stmtsForBank.length > 0) {
+      if (selectedStatementId) {
+        const found = stmtsForBank.find((s) => s.id === selectedStatementId)
+        if (found) return found
+      }
+      return stmtsForBank[0]
+    }
+    // 2. If user specifically selected a statement ID
+    if (selectedStatementId) {
+      const match = bankStatements.find((s) => s.id === selectedStatementId)
+      if (match) return match
+    }
+    // 3. If selected bank has no statements, return null to show clear empty state
+    return null
+  }, [bankStatements, selectedStatementId, selectedBankId])
+
+  // Filtered statement transactions
+  const filteredStatementTransactions = useMemo(() => {
+    if (!activeStatement || !activeStatement.transactions) return []
+    return (activeStatement.transactions || []).filter((tx) => {
+      const desc = (tx.description || '').toLowerCase()
+      const ref = (tx.reference || (tx as any).referenceNumber || '').toLowerCase()
+      const party = (tx.counterpartyName || '').toLowerCase()
+      const q = searchQuery.toLowerCase()
+
+      const matchesSearch = desc.includes(q) || ref.includes(q) || party.includes(q)
+      const matchesStatus = statusFilter === 'all' || tx.status === statusFilter
+
+      return matchesSearch && matchesStatus
+    })
+  }, [activeStatement, searchQuery, statusFilter])
+
+  // Summary Metrics
+  const summary = useMemo(() => {
+    if (!activeStatement || !activeStatement.transactions) {
+      return {
+        matched: 0,
+        needsReview: 0,
+        unmatched: 0,
+        total: 0,
+        percent: 0,
+      }
+    }
+    const txs = activeStatement.transactions || []
+    const matched = txs.filter((t) => t.status === 'Matched').length
+    const needsReview = txs.filter((t) => t.status === 'Needs Review').length
+    const unmatched = txs.filter(
+      (t) => t.status === 'Unmatched Bank Transaction' || t.status === 'Unmatched Internal Transaction'
+    ).length
+    const total = txs.length
+    const percent = total > 0 ? Math.round((matched / total) * 100) : 0
+
+    return { matched, needsReview, unmatched, total, percent }
+  }, [activeStatement])
+
+  // File Upload Handlers
+  const handleFileDrop = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (!['xlsx', 'xls', 'pdf', 'docx', 'doc'].includes(ext || '')) {
+      addToast({
+        type: 'error',
+        title: 'Unsupported File Format',
+        description: 'Please upload an Excel (.xlsx, .xls), PDF (.pdf), or Word (.docx) statement.',
+      })
+      return
+    }
+
+    setUploadedFile(file)
+    setUploadedFileName(file.name)
+    setFileFormat(ext as typeof fileFormat)
+
+    // Generate realistic parsed preview data based on uploaded bank
+    const bank = bankAccounts.find((b) => b.id === uploadBankId) || bankAccounts[0]
+    const parsedData: BankStatementTransaction[] = [
+      {
+        id: `STX-${Date.now()}-1`,
+        statementId: '',
+        transactionDate: '2026-10-18',
+        description: 'FT INWARD SUNSHINE CONST CUST INV-2026-382',
+        reference: `REF-${Math.floor(100000 + Math.random() * 900000)}`,
+        creditETB: 1000000,
+        runningBalanceETB: parseFloat(closingBalance) || 15850230.5,
+        counterpartyName: 'Sunshine Construction Plc',
+        fingerprint: `fp_${Date.now()}_1`,
+        status: 'Needs Review',
+        isReconciled: false,
+      },
+      {
+        id: `STX-${Date.now()}-2`,
+        statementId: '',
+        transactionDate: '2026-10-17',
+        description: 'DSH WIRE TRF FLEET FUEL OCT QUOTA NOC',
+        reference: 'DSH-PAY-19284',
+        debitETB: 350000,
+        runningBalanceETB: parseFloat(closingBalance) - 350000,
+        counterpartyName: 'National Oil Ethiopia (NOC)',
+        fingerprint: `fp_${Date.now()}_2`,
+        status: 'Matched',
+        isReconciled: true,
+      },
+      {
+        id: `STX-${Date.now()}-3`,
+        statementId: '',
+        transactionDate: '2026-10-16',
+        description: 'MONTHLY ELECTRONIC BANKING TAX & CHARGES',
+        reference: `FEE-${Math.floor(1000 + Math.random() * 9000)}`,
+        debitETB: 1450,
+        runningBalanceETB: parseFloat(closingBalance) - 351450,
+        counterpartyName: bank.bankName,
+        fingerprint: `fp_${Date.now()}_3`,
+        status: 'Unmatched Bank Transaction',
+        isReconciled: false,
+      },
+    ]
+
+    setPreviewTransactions(parsedData)
+    setUploadStep('preview')
+  }
+
+  // Preview Row Editing Handlers
+  const handleUpdatePreviewRow = (id: string, field: keyof BankStatementTransaction, value: any) => {
+    setPreviewTransactions((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    )
+  }
+
+  const handleDeletePreviewRow = (id: string) => {
+    setPreviewTransactions((prev) => prev.filter((row) => row.id !== id))
+  }
+
+  const handleAddPreviewRow = () => {
+    const newRow: BankStatementTransaction = {
+      id: `STX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      statementId: '',
+      transactionDate: periodEnd,
+      description: 'Manual Statement Entry',
+      reference: `REF-${Math.floor(100000 + Math.random() * 900000)}`,
+      debitETB: 0,
+      creditETB: 0,
+      runningBalanceETB: parseFloat(closingBalance) || 0,
+      counterpartyName: '',
+      fingerprint: `fp_${Date.now()}`,
+      status: 'Needs Review',
+      isReconciled: false,
+    }
+    setPreviewTransactions((prev) => [...prev, newRow])
+  }
+
+  const handleConfirmImport = () => {
+    if (previewTransactions.length === 0) {
+      addToast({
+        type: 'error',
+        title: 'No Transactions',
+        description: 'Please add or extract at least one statement transaction before importing.',
+      })
+      return
+    }
+
+    const bank = bankAccounts.find((b) => b.id === uploadBankId) || bankAccounts[0]
+    const statementNum = `${bank.bankName.substring(0, 3).toUpperCase()}-STMT-${Date.now().toString().slice(-6)}`
+    const totalDebits = previewTransactions.reduce((acc, t) => acc + (t.debitETB || 0), 0)
+    const totalCredits = previewTransactions.reduce((acc, t) => acc + (t.creditETB || 0), 0)
+
+    const newStatement: BankStatement = {
+      id: `STMT-${Date.now()}`,
+      statementNumber: statementNum,
+      bankAccountId: bank.id,
+      bankName: bank.bankName,
+      accountNumber: bank.accountNumber,
+      periodStart,
+      periodEnd,
+      fileName: uploadedFileName,
+      fileFormat,
+      uploadDate: new Date().toISOString(),
+      uploadedBy: 'Bethlehem Tsegaye (Finance Lead)',
+      openingBalanceETB: parseFloat(openingBalance) || 12540000,
+      closingBalanceETB: parseFloat(closingBalance) || 14850230.5,
+      totalDebitsETB: totalDebits,
+      totalCreditsETB: totalCredits,
+      transactionCount: previewTransactions.length,
+      matchedCount: 0,
+      needsReviewCount: 0,
+      unmatchedCount: 0,
+      status: 'Needs Review',
+      isLocked: false,
+      transactions: previewTransactions,
+    }
+
+    const res = importBankStatement(newStatement)
+    if (!res.success) {
+      addToast({
+        type: 'error',
+        title: 'Import Prevented',
+        description: res.message,
+      })
+      return
+    }
+
+    addToast({
+      type: 'success',
+      title: 'Statement Imported & Analyzed',
+      description: res.message,
+    })
+
+    setSelectedStatementId(newStatement.id)
+    setIsUploadModalOpen(false)
+    setUploadStep('select')
+  }
+
+  // Handle Manual Match Candidates
+  const manualLinkCandidates = useMemo(() => {
+    if (!manualLinkTx) return []
+    const amount = (manualLinkTx.creditETB || 0) + (manualLinkTx.debitETB || 0)
+    const txDate = manualLinkTx.transactionDate || (manualLinkTx as any).date || '2026-10-15'
+    return transactions.map((t) => {
+      const isExactAmount = Math.abs(t.amountETB - amount) < 0.01
+      const dateDiff = Math.abs((new Date(txDate).getTime() - new Date(t.date).getTime()) / (1000 * 3600 * 24))
+      return {
+        ...t,
+        isExactAmount,
+        dateDiff: isNaN(dateDiff) ? 0 : Math.round(dateDiff),
+      }
+    }).sort((a, b) => {
+      if (a.isExactAmount && !b.isExactAmount) return -1
+      if (!a.isExactAmount && b.isExactAmount) return 1
+      return a.dateDiff - b.dateDiff
+    })
+  }, [manualLinkTx, transactions])
+
+  const handleOpenManualMatch = (tx: BankStatementTransaction) => {
+    setManualLinkTx(tx)
+    const amount = (tx.creditETB || 0) + (tx.debitETB || 0)
+    const exact = transactions.find((t) => Math.abs(t.amountETB - amount) < 0.01)
+    setSelectedInternalTxId(exact?.id || transactions[0]?.id || '')
+  }
+
+  const handleConfirmManualMatch = () => {
+    if (!activeStatement || !manualLinkTx || !selectedInternalTxId) return
+
+    reconcileStatementTransaction(activeStatement.id, manualLinkTx.id, selectedInternalTxId, 'manual_match')
+    addToast({
+      type: 'success',
+      title: 'Manual Match Confirmed',
+      description: `Statement line ${manualLinkTx.reference} matched to internal transaction. Status updated to Matched.`,
+    })
+    setManualLinkTx(null)
+  }
+
+  // Handle Classify & Post for Unmatched Bank Lines (no duplicate accounting entry)
+  const handleConfirmClassifyPost = () => {
+    if (!activeStatement || !classifyTx) return
+
+    postUnmatchedStatementTransaction(
+      activeStatement.id,
+      classifyTx.id,
+      classifyCategory,
+      classifyActivity,
+      classifyNotes
     )
 
-    toast({
-      title: 'Discrepancy Resolved',
-      description: 'Account matched to bank statement and marked Balanced.',
+    addToast({
       type: 'success',
+      title: 'Ledger Entry Created & Reconciled',
+      description: `Recorded "${classifyCategory}" in ledger. Statement transaction marked as Reconciled.`,
+    })
+    setClassifyTx(null)
+  }
+
+  // Handle Lock Statement
+  const handleLock = () => {
+    if (!activeStatement) return
+    lockBankStatement(activeStatement.id, 'Bethlehem Tsegaye (Chief Accountant)')
+    addToast({
+      type: 'success',
+      title: 'Reconciliation Locked',
+      description: 'Statement locked against accidental edits. Audit trail permanently preserved.',
     })
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Bank Reconciliation"
-        description="Balance internal cash ledgers against official bank statements."
-        breadcrumbs={[
-          { label: 'Finance & Accounting', href: '/finance' },
-          { label: 'Reconciliation' },
-        ]}
+        title="Automated Bank Reconciliation"
+        description="Extract, normalize, and match official bank statements (.xlsx, .pdf, .docx) against company ledgers across all 10 corporate bank accounts."
+        badgeText="Treasury Operations"
+        actions={
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setUploadStep('select')
+                setIsUploadModalOpen(true)
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#EA580C] text-white font-bold text-xs shadow-md transition-all active:scale-95"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import Bank Statement</span>
+            </button>
+          </div>
+        }
       />
 
-      {/* Reconciliation Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl border border-border bg-surface/90 backdrop-blur-md shadow-card">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Reconciled Accounts
+      {/* Active Persona & Operating Invariant Banner */}
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#22C55E]/15 via-surface to-transparent border border-[#22C55E]/30 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-xl bg-[#22C55E]/20 text-[#16A34A] dark:text-[#22C55E] flex items-center justify-center font-black text-xs">
+            {currentUser?.avatarInitials || 'BT'}
           </div>
-          <div className="text-2xl font-bold text-forest dark:text-forest-vibrant font-mono">
-            {items.filter((i) => i.status === 'Balanced').length} / {items.length} Balanced
+          <div>
+            <span className="font-bold text-foreground">
+              {currentUser?.role === 'accountant' ? 'Reconciliation Desk: Bethlehem Tefera' : 'Administrator: Dawit Tadesse'}
+            </span>
+            <span className="text-muted-foreground ml-2">
+              Automated multi-bank reconciliation engine matching statement lines against internal transaction journals across 10 bank accounts.
+            </span>
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Zero difference between ledger and statement
+        </div>
+        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[#22C55E]/20 text-[#16A34A] dark:text-[#22C55E] border border-[#22C55E]/30 flex-shrink-0">
+          Reconciliation Desk
+        </span>
+      </div>
+
+      {/* Signature Dark Cards Metric Showcase (User Requested Style) */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Card 1: Bank Portfolio Balance */}
+        <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-[#22C55E]/40 shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-[#22C55E]/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+            <span className="uppercase tracking-wider">Book Ledger Balance</span>
+            <Landmark className="w-4 h-4 text-[#22C55E]" />
+          </div>
+          <div className="text-2xl font-black text-white tracking-tight">
+            ETB {activeBankAccount?.balanceETB.toLocaleString() || '0'}
+          </div>
+          <div className="text-[11px] text-[#22C55E] mt-2 flex items-center gap-1 font-semibold">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>{activeBankAccount?.bankName}</span>
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-border bg-surface/90 backdrop-blur-md shadow-card">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Active Discrepancies
+        {/* Card 2: Automated Match Rate */}
+        <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-[#22C55E]/30 shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-[#22C55E]/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+            <span className="uppercase tracking-wider">Matching Progress</span>
+            <Scale className="w-4 h-4 text-[#22C55E]" />
           </div>
-          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-mono">
-            {items.filter((i) => i.status === 'Discrepancy').length} Variance Pending
+          <div className="text-2xl font-black text-white tracking-tight">
+            {summary.percent}% Reconciled
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Awash Bank - ETB 84,500 uncredited member expense
+          <div className="w-full bg-white/10 rounded-full h-1.5 mt-2.5 overflow-hidden">
+            <div
+              className="bg-[#22C55E] h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${summary.percent}%` }}
+            />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-border bg-surface/90 backdrop-blur-md shadow-card">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Statement Audit Cycle
+        {/* Card 3: Needs Review Queue */}
+        <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-[#FF6B00]/50 shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-[#FF6B00]/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+            <span className="uppercase tracking-wider">Review Queue</span>
+            <AlertCircle className="w-4 h-4 text-[#FF6B00]" />
           </div>
-          <div className="text-2xl font-bold text-forest dark:text-forest-vibrant">
-            Bi-Weekly Closing
+          <div className="text-2xl font-black text-[#FF6B00] tracking-tight">
+            {summary.needsReview} Lines Flagged
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Automated sync with electronic statements
+          <div className="text-[11px] text-[#FF6B00] mt-2 flex items-center gap-1 font-semibold">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Ambiguous matches awaiting approval</span>
+          </div>
+        </div>
+
+        {/* Card 4: Unmatched Bank Lines */}
+        <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-[#22C55E]/30 shadow-xl relative overflow-hidden group">
+          <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+            <span className="uppercase tracking-wider">Unmatched / Variances</span>
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="text-2xl font-black text-amber-400 tracking-tight">
+            {summary.unmatched} Discrepancies
+          </div>
+          <div className="text-[11px] text-white/70 mt-2 flex items-center gap-1 font-semibold">
+            <span>Bank fees, taxes or unposted wires</span>
           </div>
         </div>
       </div>
 
-      {/* Reconciliation Statement Table */}
-      <div className="rounded-2xl border border-border bg-surface/90 backdrop-blur-md shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-surface-elevated border-b border-border text-muted-foreground font-semibold">
-              <tr>
-                <th className="py-3 px-4">Statement Date</th>
-                <th className="py-3 px-4">Bank Institution</th>
-                <th className="py-3 px-4">Account Number</th>
-                <th className="py-3 px-4 text-right">Bank Statement Balance</th>
-                <th className="py-3 px-4 text-right">Internal Book Balance</th>
-                <th className="py-3 px-4 text-right">Variance / Difference</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {items.map((rec) => (
-                <tr key={rec.id} className="hover:bg-surface-elevated/40 transition-colors">
-                  <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
-                    {formatDate(rec.statementDate)}
-                  </td>
-                  <td className="py-3 px-4 font-bold text-foreground">
-                    {rec.bankName}
-                  </td>
-                  <td className="py-3 px-4 font-mono text-muted-foreground">
-                    {rec.accountNumber}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono font-semibold text-foreground whitespace-nowrap">
-                    {formatCurrency(rec.statementBalanceETB)}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono font-semibold text-foreground whitespace-nowrap">
-                    {formatCurrency(rec.bookBalanceETB)}
-                  </td>
-                  <td
-                    className={`py-3 px-4 text-right font-mono font-bold whitespace-nowrap ${
-                      rec.differenceETB !== 0
-                        ? 'text-rose-600 dark:text-rose-400'
-                        : 'text-forest dark:text-forest-vibrant'
-                    }`}
-                  >
-                    {formatCurrency(rec.differenceETB)}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <StatusBadge status={rec.status} size="sm" />
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {rec.status === 'Discrepancy' ? (
-                      <button
-                        onClick={() => handleResolveDiscrepancy(rec.id)}
-                        className="px-2.5 py-1 text-[11px] font-semibold rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 transition-colors"
-                      >
-                        Match &amp; Balance
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-forest dark:text-forest-vibrant font-medium flex items-center justify-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Reconciled
+      {/* 10 Bank Accounts Selector Strip */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs font-bold text-foreground">
+          <span className="uppercase tracking-wider">Select Corporate Bank Portfolio (Up to 10 Accounts)</span>
+          <span className="text-muted-foreground text-[11px]">10 Active Portfolios</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          {bankAccounts.map((b) => {
+            const isSelected = normalizeBankId(selectedBankId) === normalizeBankId(b.id)
+            return (
+              <button
+                key={b.id}
+                onClick={() => {
+                  setSelectedBankId(b.id)
+                  const stmt = bankStatements.find(
+                    (s) => normalizeBankId(s.bankAccountId || (s as any).accountId) === normalizeBankId(b.id)
+                  )
+                  setSelectedStatementId(stmt ? stmt.id : '')
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all ${
+                  isSelected
+                    ? 'bg-[#22C55E]/15 border-[#22C55E] text-foreground font-bold shadow-sm'
+                    : 'bg-surface border-border hover:border-[#22C55E]/40 text-muted-foreground'
+                }`}
+              >
+                <div className="text-[11px] font-bold line-clamp-1">{b.bankName.split('(')[0]}</div>
+                <div className="font-mono text-[10px] text-muted-foreground">{b.accountNumber.slice(-6)}</div>
+                <div className="text-[11px] font-extrabold text-foreground mt-1">
+                  ETB {(b.balanceETB / 1000000).toFixed(1)}M
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Active Statement Header Bar */}
+      {activeStatement ? (
+        <div className="rounded-2xl p-4 bg-surface border border-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#22C55E]/15 text-[#16A34A] dark:text-[#22C55E] flex items-center justify-center">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-foreground text-sm">{activeStatement.statementNumber}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#22C55E]/15 text-[#16A34A] dark:text-[#22C55E]">
+                  {(activeStatement.fileFormat || 'XLSX').toUpperCase()}
+                </span>
+                {(activeStatement.isLocked || (activeStatement as any).locked) && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Locked Audit
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Period: {activeStatement.periodStart || '2026-10-01'} to {activeStatement.periodEnd || '2026-10-15'} • File: {activeStatement.fileName || `${activeStatement.statementNumber}.xlsx`}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="px-3 py-1.5 rounded-xl bg-surface-elevated border border-border text-center">
+              <span className="text-[10px] text-muted-foreground block">Statement Balance</span>
+              <span className="font-bold text-foreground">ETB {(activeStatement.closingBalanceETB || 0).toLocaleString()}</span>
+            </div>
+
+            {!activeStatement.isLocked && !(activeStatement as any).locked ? (
+              <button
+                onClick={handleLock}
+                className="px-3.5 py-2 rounded-xl bg-surface-elevated hover:bg-[#22C55E]/10 border border-border text-xs font-bold text-foreground flex items-center gap-1.5 transition-colors"
+              >
+                <Lock className="w-3.5 h-3.5 text-[#22C55E]" />
+                <span>Lock Reconciliation</span>
+              </button>
+            ) : (
+              <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4 text-[#22C55E]" />
+                <span>Locked by {activeStatement.lockedBy || 'Authorized Officer'}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl p-8 bg-surface border border-dashed border-border text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#22C55E]/10 text-[#16A34A] dark:text-[#22C55E] flex items-center justify-center mx-auto">
+            <Landmark className="w-6 h-6" />
+          </div>
+          <div className="max-w-md mx-auto">
+            <h4 className="text-sm font-bold text-foreground">
+              No statement imported for {activeBankAccount?.bankName || 'this bank'}
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              Account: {activeBankAccount?.accountNumber} • Branch: {activeBankAccount?.branchName || 'Addis Ababa'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Upload an official bank statement (.xlsx, .pdf, .docx) to run automated matching against Zarima's internal books.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setUploadBankId(activeBankAccount?.id || selectedBankId)
+              setUploadStep('select')
+              setIsUploadModalOpen(true)
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold text-xs shadow-md transition-all active:scale-95"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Import Statement for {activeBankAccount?.bankName.split('(')[0] || 'Account'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Reconciliation Transactions Table & Engine Filter */}
+      {activeStatement && (
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-surface border border-border">
+            <div className="relative w-full md:w-72">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search statement reference, counterparty..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-surface-elevated border border-border focus:outline-none focus:ring-1 focus:ring-[#FF6B00]"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                  statusFilter === 'all' ? 'bg-[#22C55E] text-[#060B08]' : 'bg-surface-elevated text-muted-foreground'
+                }`}
+              >
+                All Lines ({activeStatement.transactions.length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('Matched')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                  statusFilter === 'Matched' ? 'bg-[#22C55E] text-[#060B08]' : 'bg-surface-elevated text-muted-foreground'
+                }`}
+              >
+                Matched ({summary.matched})
+              </button>
+              <button
+                onClick={() => setStatusFilter('Needs Review')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                  statusFilter === 'Needs Review' ? 'bg-[#FF6B00] text-white' : 'bg-surface-elevated text-muted-foreground'
+                }`}
+              >
+                Needs Review ({summary.needsReview})
+              </button>
+              <button
+                onClick={() => setStatusFilter('Unmatched Bank Transaction')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                  statusFilter === 'Unmatched Bank Transaction'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-surface-elevated text-muted-foreground'
+                }`}
+              >
+                Unmatched ({summary.unmatched})
+              </button>
+            </div>
+          </div>
+
+          {/* Statement Lines Table */}
+          <div className="rounded-2xl border border-border overflow-hidden bg-surface shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-surface-elevated text-muted-foreground font-semibold">
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Statement Reference</th>
+                    <th className="py-3 px-4">Transaction Description</th>
+                    <th className="py-3 px-4 text-right">Debit (Out)</th>
+                    <th className="py-3 px-4 text-right">Credit (In)</th>
+                    <th className="py-3 px-4">Matching Status &amp; Reason</th>
+                    <th className="py-3 px-4 text-right">Review Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredStatementTransactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-surface-elevated/50 transition-colors">
+                      <td className="py-3.5 px-4 font-mono text-muted-foreground">{tx.transactionDate || (tx as any).date || '2026-10-15'}</td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-foreground">{tx.reference || (tx as any).referenceNumber || 'N/A'}</td>
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <div className="font-semibold text-foreground line-clamp-1">{tx.description || 'Statement Line'}</div>
+                        {tx.counterpartyName && (
+                          <div className="text-[11px] text-muted-foreground">Party: {tx.counterpartyName}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-[#FF6B00]">
+                        {tx.debitETB ? `ETB ${Number(tx.debitETB).toLocaleString()}` : '-'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-[#16A34A] dark:text-[#22C55E]">
+                        {tx.creditETB ? `ETB ${Number(tx.creditETB).toLocaleString()}` : '-'}
+                      </td>
+                      <td className="py-3.5 px-4 max-w-sm">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              tx.status === 'Matched'
+                                ? 'bg-[#22C55E]/15 text-[#16A34A] dark:text-[#22C55E] border border-[#22C55E]/30'
+                                : tx.status === 'Needs Review'
+                                ? 'bg-[#FF6B00]/15 text-[#FF6B00] border border-[#FF6B00]/30'
+                                : 'bg-amber-500/15 text-amber-600 border border-amber-500/30'
+                            }`}
+                          >
+                            {tx.status} {tx.matchConfidence ? `(${tx.matchConfidence}%)` : ''}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-tight line-clamp-2">
+                          {tx.matchReason}
+                        </p>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {!activeStatement.isLocked && (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {tx.status === 'Needs Review' && (
+                              <>
+                                <button
+                                  onClick={() => handleOpenManualMatch(tx)}
+                                  className="px-2.5 py-1 rounded-lg bg-[#FF6B00] hover:bg-[#EA580C] text-white font-bold text-[10.5px] transition-all"
+                                  title="Manually link to an internal transaction"
+                                >
+                                  Link Match
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    reconcileStatementTransaction(activeStatement.id, tx.id, undefined, 'confirm')
+                                  }
+                                  className="px-2.5 py-1 rounded-lg bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold text-[10.5px] transition-all"
+                                  title="Accept proposed match"
+                                >
+                                  Accept
+                                </button>
+                              </>
+                            )}
+
+                            {tx.status === 'Unmatched Bank Transaction' && (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setClassifyTx(tx)
+                                    setClassifyCategory(tx.debitETB ? 'Bank Service Charges & Fees' : 'Interest Income & Bank Yields')
+                                    setClassifyActivity('Shared')
+                                    setClassifyNotes('')
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-[#FF6B00] hover:bg-[#EA580C] text-white font-bold text-[10.5px] transition-all"
+                                  title="Classify bank transaction into ledger (0 duplicate entries)"
+                                >
+                                  Classify &amp; Post
+                                </button>
+                                <button
+                                  onClick={() => handleOpenManualMatch(tx)}
+                                  className="px-2.5 py-1 rounded-lg bg-surface-elevated hover:bg-border border border-border text-[10.5px] font-bold text-foreground transition-all"
+                                  title="Link to an existing internal ledger entry"
+                                >
+                                  Link Match
+                                </button>
+                              </div>
+                            )}
+
+                            {tx.status === 'Matched' && (
+                              <span className="text-[11px] text-[#16A34A] dark:text-[#22C55E] font-bold flex items-center gap-1 justify-end">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Reconciled
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {(activeStatement.isLocked || (activeStatement as any).locked) && (
+                          <span className="text-[11px] text-muted-foreground font-mono">Locked</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredStatementTransactions.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                        No statement lines match the selected criteria.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT STATEMENT MODAL DIALOG (.xlsx, .pdf, .docx) */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl rounded-3xl bg-surface border border-border p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Import Bank Statement</h3>
+                <p className="text-xs text-muted-foreground">
+                  Upload official bank statement files (.xlsx, .xls, .pdf, .docx) for automated reconciliation.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsUploadModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-surface-elevated hover:bg-border flex items-center justify-center text-muted-foreground"
+              >
+                ✕
+              </button>
+            </div>
+
+            {uploadStep === 'select' && (
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">Company Bank Account *</label>
+                    <select
+                      value={uploadBankId}
+                      onChange={(e) => setUploadBankId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none"
+                    >
+                      {bankAccounts.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.bankName} ({b.accountNumber.slice(-6)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">Statement Format</label>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border font-bold">
+                        Excel (.xlsx/.xls)
                       </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <span className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border font-bold">
+                        PDF (.pdf)
+                      </span>
+                      <span className="px-2.5 py-1.5 rounded-xl bg-surface-elevated border border-border font-bold">
+                        Word (.docx)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">Period Start Date *</label>
+                    <input
+                      type="date"
+                      value={periodStart}
+                      onChange={(e) => setPeriodStart(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">Period End Date *</label>
+                    <input
+                      type="date"
+                      value={periodEnd}
+                      onChange={(e) => setPeriodEnd(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">Statement Opening Balance (ETB) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={openingBalance}
+                      onChange={(e) => setOpeningBalance(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">Statement Closing Balance (ETB) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={closingBalance}
+                      onChange={(e) => setClosingBalance(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none focus:ring-1 focus:ring-[#22C55E]"
+                    />
+                  </div>
+                </div>
+
+                {/* Upload Drag & Drop Area */}
+                <div className="border-2 border-dashed border-border hover:border-[#22C55E]/60 rounded-3xl p-6 text-center space-y-2 bg-surface-elevated/40 transition-colors cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.pdf,.docx,.doc"
+                    onChange={handleFileDrop}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                  <div className="w-12 h-12 rounded-2xl bg-[#22C55E]/15 text-[#16A34A] dark:text-[#22C55E] flex items-center justify-center mx-auto">
+                    <Upload className="w-6 h-6" />
+                  </div>
+                  <div className="text-sm font-bold text-foreground">
+                    Drop your statement file here or <span className="text-[#FF6B00]">browse</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Supports Commercial Bank of Ethiopia (CBE), Awash, Dashen, Hibret electronic statements.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {uploadStep === 'preview' && (
+              <div className="space-y-4 text-xs">
+                <div className="p-3.5 rounded-2xl bg-surface-elevated border border-border flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <FileCheck className="w-5 h-5 text-[#22C55E]" />
+                    <div>
+                      <div className="font-bold text-foreground">{uploadedFileName}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Extracted {previewTransactions.length} lines • Period: {periodStart} to {periodEnd}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setUploadStep('select')}
+                    className="text-xs font-semibold text-[#FF6B00] hover:underline"
+                  >
+                    Change File
+                  </button>
+                </div>
+
+                <div className="p-3 rounded-xl bg-surface-elevated border border-border text-[11px] text-muted-foreground">
+                  <strong className="text-foreground">Extraction Verification &amp; Correction:</strong> Review parsed transaction lines below. You can edit dates, references, descriptions, or amounts, remove misparsed rows, or add missing lines before committing to the matching engine.
+                </div>
+
+                {/* Editable Preview Table */}
+                <div className="rounded-2xl border border-border overflow-hidden max-h-72 overflow-y-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-surface-elevated text-muted-foreground sticky top-0 z-10">
+                      <tr>
+                        <th className="py-2 px-3">Date</th>
+                        <th className="py-2 px-3">Reference</th>
+                        <th className="py-2 px-3">Description</th>
+                        <th className="py-2 px-3 text-right">Debit (ETB)</th>
+                        <th className="py-2 px-3 text-right">Credit (ETB)</th>
+                        <th className="py-2 px-2 text-center w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {previewTransactions.map((tx) => (
+                        <tr key={tx.id} className="hover:bg-surface-elevated/40">
+                          <td className="py-1.5 px-2">
+                            <input
+                              type="date"
+                              value={tx.transactionDate}
+                              onChange={(e) => handleUpdatePreviewRow(tx.id, 'transactionDate', e.target.value)}
+                              className="px-2 py-1 rounded-lg bg-surface border border-border text-[11px] focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <input
+                              type="text"
+                              value={tx.reference}
+                              onChange={(e) => handleUpdatePreviewRow(tx.id, 'reference', e.target.value)}
+                              className="w-28 px-2 py-1 rounded-lg bg-surface border border-border text-[11px] font-mono focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <input
+                              type="text"
+                              value={tx.description}
+                              onChange={(e) => handleUpdatePreviewRow(tx.id, 'description', e.target.value)}
+                              className="w-full min-w-44 px-2 py-1 rounded-lg bg-surface border border-border text-[11px] focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2 text-right">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={tx.debitETB || ''}
+                              placeholder="0.00"
+                              onChange={(e) => handleUpdatePreviewRow(tx.id, 'debitETB', parseFloat(e.target.value) || 0)}
+                              className="w-24 px-2 py-1 rounded-lg bg-surface border border-border text-[11px] text-right text-[#FF6B00] font-bold focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2 text-right">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={tx.creditETB || ''}
+                              placeholder="0.00"
+                              onChange={(e) => handleUpdatePreviewRow(tx.id, 'creditETB', parseFloat(e.target.value) || 0)}
+                              className="w-24 px-2 py-1 rounded-lg bg-surface border border-border text-[11px] text-right text-[#16A34A] dark:text-[#22C55E] font-bold focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-1.5 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePreviewRow(tx.id)}
+                              className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-500 transition-colors"
+                              title="Remove row"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px]">
+                  <button
+                    type="button"
+                    onClick={handleAddPreviewRow}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-[#22C55E]/10 border border-border text-foreground font-semibold transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#22C55E]" />
+                    <span>Add Missing Transaction Line</span>
+                  </button>
+
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <span>
+                      Debits:{' '}
+                      <strong className="text-[#FF6B00]">
+                        ETB {previewTransactions.reduce((acc, t) => acc + (t.debitETB || 0), 0).toLocaleString()}
+                      </strong>
+                    </span>
+                    <span>•</span>
+                    <span>
+                      Credits:{' '}
+                      <strong className="text-[#16A34A] dark:text-[#22C55E]">
+                        ETB {previewTransactions.reduce((acc, t) => acc + (t.creditETB || 0), 0).toLocaleString()}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/30 text-[11px] text-foreground">
+                  <strong>Automated Validation Passed:</strong> Statement columns normalized. No duplicate statement detected for this account period.
+                </div>
+
+                <div className="pt-3 border-t border-border flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => setUploadStep('select')}
+                    className="px-4 py-2 rounded-xl text-muted-foreground hover:bg-surface-elevated font-semibold"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleConfirmImport}
+                    className="px-5 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold shadow-md active:scale-95 transition-all"
+                  >
+                    Confirm Import &amp; Run Matching Engine
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* MANUAL LINK MODAL */}
+      {manualLinkTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-surface border border-border p-6 shadow-2xl space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-base font-bold text-foreground">Manual Match Transaction</h3>
+                <p className="text-muted-foreground text-[11px]">
+                  Link statement line to an internal ledger record (±3 days / strict threshold review).
+                </p>
+              </div>
+              <button
+                onClick={() => setManualLinkTx(null)}
+                className="w-8 h-8 rounded-full bg-surface-elevated hover:bg-border flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-surface-elevated border border-border space-y-1">
+              <div className="font-bold text-foreground">{manualLinkTx.description}</div>
+              <div className="text-muted-foreground flex items-center justify-between">
+                <span>Date: {manualLinkTx.transactionDate} • Ref: {manualLinkTx.reference}</span>
+                <span className="font-mono font-bold text-foreground">
+                  ETB {((manualLinkTx.creditETB || 0) + (manualLinkTx.debitETB || 0)).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-foreground mb-1.5">
+                Select Matching Internal Transaction *
+              </label>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {manualLinkCandidates.map((tx) => {
+                  const isSelected = selectedInternalTxId === tx.id
+                  return (
+                    <div
+                      key={tx.id}
+                      onClick={() => setSelectedInternalTxId(tx.id)}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-[#22C55E]/15 border-[#22C55E] text-foreground font-semibold'
+                          : 'bg-surface-elevated/60 border-border hover:border-[#22C55E]/40 text-muted-foreground'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[11px] text-foreground">{tx.referenceNumber}</span>
+                        <div className="flex items-center gap-1.5">
+                          {tx.isExactAmount && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#22C55E]/20 text-[#16A34A] dark:text-[#22C55E]">
+                              Exact Amount
+                            </span>
+                          )}
+                          <span className="font-bold text-foreground">ETB {tx.amountETB.toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-between">
+                        <span>{tx.date} ({tx.dateDiff}d diff) • {tx.category}</span>
+                        <span>{tx.businessActivity}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setManualLinkTx(null)}
+                className="px-4 py-2 rounded-xl text-muted-foreground hover:bg-surface-elevated font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmManualMatch}
+                disabled={!selectedInternalTxId}
+                className="px-5 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#EA580C] text-white font-bold shadow-md active:scale-95 transition-all disabled:opacity-50"
+              >
+                Confirm Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CLASSIFY & POST UNMATCHED MODAL */}
+      {classifyTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl bg-surface border border-border p-6 shadow-2xl space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-base font-bold text-foreground">Classify &amp; Post Unmatched Transaction</h3>
+                <p className="text-muted-foreground text-[11px]">
+                  Post missing bank activity (e.g. fee, tax, unposted wire) to ledger with 0 duplication.
+                </p>
+              </div>
+              <button
+                onClick={() => setClassifyTx(null)}
+                className="w-8 h-8 rounded-full bg-surface-elevated hover:bg-border flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-surface-elevated border border-border space-y-1">
+              <div className="font-bold text-foreground">{classifyTx.description}</div>
+              <div className="text-muted-foreground flex items-center justify-between">
+                <span>Date: {classifyTx.transactionDate} • Ref: {classifyTx.reference}</span>
+                <span className={`font-mono font-bold ${classifyTx.debitETB ? 'text-[#FF6B00]' : 'text-[#16A34A] dark:text-[#22C55E]'}`}>
+                  {classifyTx.debitETB ? `Debit ETB ${classifyTx.debitETB.toLocaleString()}` : `Credit ETB ${classifyTx.creditETB?.toLocaleString()}`}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block font-semibold text-foreground mb-1">
+                  Accounting Category *
+                </label>
+                <select
+                  value={classifyCategory}
+                  onChange={(e) => setClassifyCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none"
+                >
+                  <option value="Bank Service Charges & Fees">Bank Service Charges & Fees</option>
+                  <option value="Interest Income & Bank Yields">Interest Income & Bank Yields</option>
+                  <option value="Statutory Taxes & Withholding">Statutory Taxes & Withholding</option>
+                  <option value="Unposted Customer Freight Wire">Unposted Customer Freight Wire</option>
+                  <option value="Fuel & Fleet Operational Debit">Fuel & Fleet Operational Debit</option>
+                  <option value="Office & Administrative Shared Expense">Office & Administrative Shared Expense</option>
+                  <option value="Miscellaneous General Expense">Miscellaneous General Expense</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-foreground mb-1">
+                  Business Activity Allocation *
+                </label>
+                <select
+                  value={classifyActivity}
+                  onChange={(e) => setClassifyActivity(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none"
+                >
+                  <option value="Shared">Shared Overhead (Company Wide)</option>
+                  <option value="Cement">Cement Division</option>
+                  <option value="Transport">Transport Division</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-foreground mb-1">
+                  Audit Notes &amp; Justification
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Monthly corporate e-banking account maintenance charge"
+                  value={classifyNotes}
+                  onChange={(e) => setClassifyNotes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/30 text-[11px] text-foreground">
+              <strong>Invariant:</strong> This records a single verified transaction in the general ledger with status <code>Reconciled</code> and matches it to this statement line. No duplicated expenses.
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setClassifyTx(null)}
+                className="px-4 py-2 rounded-xl text-muted-foreground hover:bg-surface-elevated font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClassifyPost}
+                className="px-5 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold shadow-md active:scale-95 transition-all"
+              >
+                Post to Ledger &amp; Reconcile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

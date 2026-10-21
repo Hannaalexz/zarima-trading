@@ -30,7 +30,7 @@ export const TransactionsPage: React.FC = () => {
       tx.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (tx.notes && tx.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (tx.paidByMember && tx.paidByMember.toLowerCase().includes(searchTerm.toLowerCase()))
+      (typeof tx.paidByMember === 'string' && tx.paidByMember.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchType = typeFilter === 'ALL' || tx.type === typeFilter
     return matchSearch && matchType
   })
@@ -57,6 +57,7 @@ export const TransactionsPage: React.FC = () => {
       amountETB: Number(amountETB),
       fromAccount: type === 'Partner Funded' ? 'Private Member Account' : fromAccount,
       paidByMember: type === 'Partner Funded' ? paidByMember : undefined,
+      businessActivity: 'Shared',
       status: type === 'Partner Funded' ? 'Pending Reconciliation' : 'Cleared',
       notes: notes || `${category} recorded via treasury ledger`,
     })

@@ -1,0 +1,382 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// Company Members & Member-Funded Outlays
+// -------------------------------------------------------------
+model CompanyMember {
+  id                   String                  @id
+  name                 String
+  role                 String
+  phone                String
+  email                String
+  totalFundedETB       Float                   @default(0)
+  totalReimbursedETB   Float                   @default(0)
+  outstandingBalanceETB Float                  @default(0)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  expenses             MemberFundedExpense[]
+  reimbursements       MemberReimbursementRecord[]
+}
+
+model MemberFundedExpense {
+  id                   String                  @id
+  expenseNumber        String                  @unique
+  memberId             String
+  memberName           String
+  date                 String
+  amountETB            Float
+  currency             String                  @default("ETB")
+  category             String
+  businessActivity     String                  // "Cement" | "Transport" | "Shared"
+  description          String
+  businessPurpose      String
+  supplierOrPayee      String?
+  relatedEntityId      String?
+  relatedEntityType    String?
+  approvalStatus       String                  @default("Approved") // "Draft" | "Pending Approval" | "Approved" | "Rejected"
+  reimbursementStatus  String                  @default("Unreimbursed") // "Unreimbursed" | "Partially Reimbursed" | "Fully Reimbursed"
+  amountReimbursedETB  Float                   @default(0)
+  remainingOwedETB     Float
+  receiptFileName      String?
+  notes                String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  member               CompanyMember           @relation(fields: [memberId], references: [id])
+  reimbursements       MemberReimbursementRecord[]
+}
+
+model MemberReimbursementRecord {
+  id                   String                  @id
+  expenseId            String
+  memberId             String
+  reimbursementDate    String
+  amountETB            Float
+  bankAccountId        String
+  bankAccountName      String
+  bankReference        String
+  paymentMethod        String
+  disbursedBy          String
+  notes                String?
+  createdAt            DateTime                @default(now())
+
+  expense              MemberFundedExpense     @relation(fields: [expenseId], references: [id])
+  member               CompanyMember           @relation(fields: [memberId], references: [id])
+}
+
+// -------------------------------------------------------------
+// Banking & Treasury Ledger (10 Bank Portfolios)
+// -------------------------------------------------------------
+model BankAccount {
+  id                   String                  @id
+  bankName             String
+  accountNumber        String
+  branchName           String
+  accountType          String
+  balanceETB           Float
+  lastReconciledDate   String
+  status               String                  @default("Active")
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  statements           BankStatement[]
+}
+
+model FinancialTransaction {
+  id                   String                  @id
+  referenceNumber      String                  @unique
+  date                 String
+  type                 String                  // "Income" | "Expense" | "Transfer" | "Member Reimbursement" | "Capital Contribution" | "Partner Funded"
+  category             String
+  fromAccount          String?
+  toAccount            String?
+  amountETB            Float
+  businessActivity     String                  @default("Shared") // "Cement" | "Transport" | "Shared"
+  cementPercentage     Float?
+  transportPercentage  Float?
+  allocatedCementETB   Float?
+  allocatedTransportETB Float?
+  isMemberFunded       Boolean                 @default(false)
+  paidByMember         String?
+  memberId             String?
+  memberName           String?
+  isReimbursement      Boolean                 @default(false)
+  reimbursedMemberExpenseId String?
+  status               String                  @default("Cleared") // "Cleared" | "Pending Reconciliation" | "Reconciled"
+  notes                String?
+  createdAt            DateTime                @default(now())
+}
+
+// -------------------------------------------------------------
+// Automated Bank Reconciliation
+// -------------------------------------------------------------
+model BankStatement {
+  id                   String                  @id
+  accountId            String
+  accountName          String
+  statementNumber      String                  @unique
+  statementPeriodStart String
+  statementPeriodEnd   String
+  openingBalanceETB    Float
+  closingBalanceETB    Float
+  importedAt           DateTime                @default(now())
+  totalTransactions    Int
+  matchedCount         Int                     @default(0)
+  needsReviewCount     Int                     @default(0)
+  unmatchedCount       Int                     @default(0)
+  status               String                  @default("Pending Review")
+  locked               Boolean                 @default(false)
+  lockedAt             DateTime?
+
+  account              BankAccount             @relation(fields: [accountId], references: [id])
+  transactions         BankStatementTransaction[]
+}
+
+model BankStatementTransaction {
+  id                   String                  @id
+  statementId          String
+  date                 String
+  referenceNumber      String
+  description          String
+  amountETB            Float
+  isCredit             Boolean
+  matchedTransactionId String?
+  matchConfidence      Float                   @default(0)
+  matchReason          String?
+  status               String                  @default("Needs Review")
+  isReconciled         Boolean                 @default(false)
+
+  statement            BankStatement           @relation(fields: [statementId], references: [id], onDelete: Cascade)
+}
+
+// -------------------------------------------------------------
+// Transport & Fleet Logistics
+// -------------------------------------------------------------
+model Truck {
+  id                   String                  @id
+  plateNumber          String                  @unique
+  modelYear            Int
+  makeModel            String
+  capacityQuintals     Float
+  driverId             String
+  driverName           String
+  operationalStatus    String                  @default("Available")
+  mileageKm            Float
+  lastServiceDate      String
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+model Driver {
+  id                   String                  @id
+  fullName             String
+  licenseNumber        String                  @unique
+  licenseGrade         String
+  phone                String
+  assignedTruckPlate   String
+  emergencyContact     String
+  status               String                  @default("On Duty")
+  tripCount            Int                     @default(0)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+model Delivery {
+  id                   String                  @id
+  deliveryNoteNo       String
+  waybillNo            String                  @unique
+  truckId              String
+  plateNumber          String
+  driverName           String
+  origin               String
+  destination          String
+  cargoType            String
+  cargoQuintals        Float
+  departureTime        String
+  estimatedArrival     String
+  deliveryStatus       String                  @default("In Transit")
+  freightChargeETB     Float
+  businessActivity     String                  @default("Transport")
+
+  // Shared truckload arrangements
+  isSharedTruckload    Boolean                 @default(false)
+  partnerCarrierName   String?
+  partnerCargoQuintals Float?
+  partnerRevenueShareETB Float?
+  partnerCompanyName   String?
+  totalFreightRevenueETB Float?
+  zarimaShareETB       Float?
+  zarimaSharePercentage Float?
+  partnerShareETB      Float?
+  partnerSharePercentage Float?
+  sharedArrangementNotes String?
+
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+model MaintenanceRecord {
+  id                   String                  @id
+  truckPlate           String
+  serviceType          String
+  date                 String
+  workshopName         String
+  costETB              Float
+  status               String                  @default("Completed")
+  nextServiceDueKm     Float
+  notes                String?
+  businessActivity     String                  @default("Transport")
+  createdAt            DateTime                @default(now())
+}
+
+model FuelExpense {
+  id                   String                  @id
+  truckPlate           String
+  driverName           String
+  date                 String
+  fuelLiters           Float
+  pricePerLiterETB     Float
+  totalCostETB         Float
+  stationName          String
+  currentOdometerKm    Float
+  receiptNo            String
+  businessActivity     String                  @default("Transport")
+  isMemberFunded       Boolean                 @default(false)
+  memberExpenseId      String?
+  createdAt            DateTime                @default(now())
+}
+
+// -------------------------------------------------------------
+// Cement Trading & Depot Operations
+// -------------------------------------------------------------
+model CementPurchase {
+  id                   String                  @id
+  purchaseOrderNo      String                  @unique
+  supplierId           String
+  supplierName         String
+  cementType           String
+  quantityQuintals     Float
+  unitPriceETB         Float
+  totalAmountETB       Float
+  factoryOrigin        String
+  deliveryStatus       String                  @default("Received")
+  paymentStatus        String                  @default("Paid")
+  orderDate            String
+  assignedTruck        String?
+  businessActivity     String                  @default("Cement")
+  createdAt            DateTime                @default(now())
+}
+
+model CementSale {
+  id                   String                  @id
+  invoiceNo            String                  @unique
+  customerId           String
+  customerName         String
+  cementType           String
+  quantityQuintals     Float
+  unitPriceETB         Float
+  totalAmountETB       Float
+  paymentType          String
+  paymentStatus        String                  @default("Paid")
+  deliveryStatus       String                  @default("Delivered")
+  destinationCity      String
+  saleDate             String
+  dueDate              String?
+  businessActivity     String                  @default("Cement")
+  createdAt            DateTime                @default(now())
+}
+
+model CementInventoryItem {
+  id                   String                  @id
+  warehouseLocation    String
+  cementType           String
+  currentStockQuintals Float
+  minThresholdQuintals Float
+  unitCostETB          Float
+  totalValueETB        Float
+  lastRestockedDate    String
+  status               String                  @default("Adequate")
+  updatedAt            DateTime                @updatedAt
+}
+
+model Customer {
+  id                   String                  @id
+  name                 String
+  company              String
+  tinNumber            String
+  phone                String
+  city                 String
+  creditLimitETB       Float
+  outstandingBalanceETB Float                  @default(0)
+  paymentTerms         String
+  totalPurchasedYTD    Float                   @default(0)
+  status               String                  @default("Active")
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+model Supplier {
+  id                   String                  @id
+  name                 String
+  contactPerson        String
+  tinNumber            String
+  phone                String
+  plantLocation        String
+  totalPurchasedYTD    Float                   @default(0)
+  outstandingPayableETB Float                  @default(0)
+  status               String                  @default("Active")
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+model PayrollEntry {
+  id                   String                  @id
+  payrollMonth         String
+  employeeName         String
+  role                 String
+  department           String
+  grossSalaryETB       Float
+  incomeTaxETB         Float
+  pensionETB           Float
+  netSalaryETB         Float
+  paymentStatus        String                  @default("Paid")
+  bankReference        String
+  createdAt            DateTime                @default(now())
+}
+
+model ReceivableRecord {
+  id                   String                  @id
+  invoiceNo            String                  @unique
+  customerName         String
+  issueDate            String
+  dueDate              String
+  totalAmountETB       Float
+  amountReceivedETB    Float
+  balanceDueETB        Float
+  status               String                  @default("Current")
+  businessActivity     String                  @default("Cement")
+  createdAt            DateTime                @default(now())
+}
+
+model PayableRecord {
+  id                   String                  @id
+  billNo               String                  @unique
+  vendorOrPayee        String
+  category             String
+  issueDate            String
+  dueDate              String
+  totalAmountETB       Float
+  amountPaidETB        Float
+  balanceDueETB        Float
+  status               String                  @default("Approved for Payment")
+  businessActivity     String                  @default("Shared")
+  isMemberLiability    Boolean                 @default(false)
+  memberId             String?
+  createdAt            DateTime                @default(now())
+}

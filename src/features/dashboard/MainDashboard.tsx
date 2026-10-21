@@ -4,521 +4,541 @@ import {
   Boxes,
   Truck,
   Plus,
+  TrendingUp,
+  Landmark,
+  Scale,
+  Users,
+  Wallet,
+  ArrowRight,
+  ShieldCheck,
+  FileBarChart,
+  ShoppingBag,
+  DollarSign,
+  Fuel,
+  Wrench,
   CheckCircle2,
-  Download,
-  Activity,
+  Clock,
+  Sparkles,
+  PackageCheck,
 } from 'lucide-react'
 import { useStore } from '@/data/storeContext'
+import { useAuth } from '@/data/authContext'
+import { formatCurrency, formatQuantity } from '@/lib/formatters'
 
 export const MainDashboard: React.FC = () => {
-  const { deliveries } = useStore()
+  const {
+    inventory,
+    purchases,
+    sales,
+    trucks,
+    deliveries,
+    fuelExpenses,
+    maintenance,
+    bankAccounts,
+    memberExpenses,
+  } = useStore()
+  const { currentUser } = useAuth()
 
-  // Hub load days for heatmap (Image 1 style)
-  const hubDays = [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
-  const hubRows = [
-    { code: 'KHI', name: 'Addis Ababa Central Depot', loads: ['heavy', 'steady', 'heavy', 'heavy', 'capacity', 'steady', 'steady', 'heavy', 'heavy', 'capacity', 'steady', 'capacity'] },
-    { code: 'LHE', name: 'Adama Express Freight Yard', loads: ['steady', 'steady', 'capacity', 'steady', 'light', 'heavy', 'steady', 'steady', 'heavy', 'steady', 'light', 'steady'] },
-    { code: 'DXB', name: 'Mojo Dry Port Cross-dock', loads: ['light', 'capacity', 'heavy', 'heavy', 'steady', 'heavy', 'capacity', 'steady', 'heavy', 'capacity', 'heavy', 'steady'] },
-    { code: 'RTM', name: 'Awash Arba Transit Hub', loads: ['heavy', 'steady', 'steady', 'capacity', 'steady', 'steady', 'heavy', 'steady', 'steady', 'heavy', 'capacity', 'heavy'] },
-    { code: 'SIN', name: 'Dire Dawa Distribution Depot', loads: ['capacity', 'steady', 'heavy', 'capacity', 'steady', 'heavy', 'steady', 'heavy', 'capacity', 'heavy', 'steady', 'capacity'] },
-  ]
+  // 1. CEMENT MANAGEMENT FINANCIALS & INVENTORY
+  // Single inventory depot in Addis Ababa (Kality)
+  const addisInventory = inventory.filter(
+    (i) => i.warehouseLocation.includes('Addis') || i.warehouseLocation.includes('Kality')
+  )
+  const totalAddisStockQuintals = addisInventory.length > 0
+    ? addisInventory.reduce((sum, i) => sum + i.currentStockQuintals, 0)
+    : inventory.reduce((sum, i) => sum + i.currentStockQuintals, 0)
+  
+  const totalAddisStockValue = addisInventory.length > 0
+    ? addisInventory.reduce((sum, i) => sum + i.totalValueETB, 0)
+    : inventory.reduce((sum, i) => sum + i.totalValueETB, 0)
 
-  const getHeatmapColor = (type: string) => {
-    switch (type) {
-      case 'light':
-        return 'bg-[#22C55E]/15 dark:bg-[#FF6B00]/15 text-[#16A34A] dark:text-[#FF6B00] border border-[#22C55E]/25 dark:border-[#FF6B00]/30'
-      case 'steady':
-        return 'bg-[#22C55E]/35 dark:bg-[#FF6B00]/35 text-[#16A34A] dark:text-[#FF6B00]'
-      case 'heavy':
-        return 'bg-[#22C55E]/70 dark:bg-[#FF6B00]/70 text-[#060B08] dark:text-white font-semibold'
-      case 'capacity':
-        return 'bg-[#22C55E] dark:bg-[#FF6B00] text-[#060B08] dark:text-white font-bold shadow-[0_0_10px_rgba(34,197,94,0.4)] dark:shadow-[0_0_12px_rgba(255,107,0,0.6)]'
-      default:
-        return 'bg-surface-elevated'
-    }
-  }
+  const cementRevenue = sales.reduce((sum, s) => sum + s.totalAmountETB, 0)
+  const cementCOGS = purchases.reduce((sum, p) => sum + p.totalAmountETB, 0)
+  const cementGrossProfit = cementRevenue - cementCOGS
+  const cementGrossMarginPct = cementRevenue > 0 ? (cementGrossProfit / cementRevenue) * 100 : 0
+  const walkinSalesCount = sales.filter((s) => s.customerName.toLowerCase().includes('walk') || s.customerType === 'New').length
+
+  // 2. TRUCK MANAGEMENT FINANCIALS & FLEET
+  const totalTrucks = trucks.length
+  const inTransitTrucks = trucks.filter((t) => t.operationalStatus === 'Active Trip').length
+  const availableTrucks = trucks.filter((t) => t.operationalStatus === 'Available').length
+  const workshopTrucks = trucks.filter((t) => t.operationalStatus === 'In Maintenance').length
+
+  const truckFreightRevenue = deliveries.reduce((sum, d) => sum + d.freightChargeETB, 0)
+  const directFuelCost = fuelExpenses.reduce((sum, f) => sum + f.totalCostETB, 0)
+  const truckGrossProfit = truckFreightRevenue - directFuelCost
+  const truckGrossMarginPct = truckFreightRevenue > 0 ? (truckGrossProfit / truckFreightRevenue) * 100 : 0
+  const maintenanceCost = maintenance.reduce((sum, m) => sum + m.costETB, 0)
+
+  // 3. OVERALL FINANCE & TREASURY
+  const totalBankLiquidity = bankAccounts.reduce((sum, b) => sum + b.balanceETB, 0)
+  const totalMemberOwed = memberExpenses.reduce((sum, m) => sum + m.remainingOwedETB, 0)
+  const combinedOperatingGross = cementGrossProfit + truckGrossProfit
 
   return (
     <div className="space-y-6">
-      {/* Light Green Welcome Bar */}
+      
+      {/* ------------------------------------------------------------- */}
+      {/* TOP WELCOME & PERSONA HEADER */}
+      {/* ------------------------------------------------------------- */}
       <div className="rounded-3xl p-6 sm:p-7 bg-gradient-to-r from-[#22C55E] via-[#24CB63] to-[#16A34A] text-[#060B08] shadow-[0_14px_45px_rgba(34,197,94,0.30)] border border-[#22C55E] relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-        {/* Subtle glass glow orbs */}
         <div className="absolute -top-12 -left-12 w-56 h-56 bg-white/20 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-black/10 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 space-y-2 flex-1">
-          {/* Hi, Dawit! & Managing Partner */}
           <div className="flex items-center gap-2.5">
             <span className="px-3 py-1 rounded-full bg-[#060B08]/15 text-[#060B08] text-xs font-black uppercase tracking-wider backdrop-blur-sm shadow-sm flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#060B08] animate-ping" />
-              Hi, Dawit!
+              <span>{currentUser?.role === 'accountant' ? 'Bethlehem Tefera' : 'Dawit Tadesse'}</span>
             </span>
             <span className="text-xs font-bold text-[#060B08]/80 tracking-tight border-l border-[#060B08]/20 pl-2.5">
-              Managing Partner
+              {currentUser?.roleTitle || 'Managing Partner & Systems Administrator'}
             </span>
           </div>
 
-          {/* Clean bold heading */}
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-[#060B08] font-sans">
-            Everything moving today?
+            Operations &amp; Financial Control Tower
           </h1>
 
-          {/* Clean status chips with Electric Orange Priority accent */}
           <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#060B08]/15 font-black text-xs text-[#060B08] shadow-xs">
-              <Activity className="w-3.5 h-3.5 animate-pulse text-[#060B08]" />
-              Live telemetry active
+              <Boxes className="w-3.5 h-3.5 text-[#060B08]" />
+              <span>Single Inventory: Addis Ababa Central Depot</span>
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF6B00] text-white font-extrabold text-xs shadow-md shadow-[#FF6B00]/30 hover:scale-105 transition-transform">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-              Express Corridor Priority
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF6B00] text-white font-extrabold text-xs shadow-md shadow-[#FF6B00]/30">
+              <Truck className="w-3.5 h-3.5" />
+              <span>42 Heavy Haulers Fleet</span>
             </span>
           </div>
         </div>
 
-        {/* Action Buttons on the Light Green Bar */}
+        {/* Header Action Buttons */}
         <div className="relative z-10 flex items-center gap-3 flex-wrap flex-shrink-0 self-start md:self-center">
-          <button
-            onClick={() => {
-              window.print()
-            }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-full bg-white/95 hover:bg-white dark:bg-[#060B08] dark:hover:bg-black text-[#060B08] dark:text-[#FF6B00] transition-all shadow-md border border-white/80 dark:border-[#FF6B00]/40 hover:scale-105 active:scale-95 whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5 text-current" />
-            <span>Export report</span>
-          </button>
-
           <Link
-            to="/fleet/deliveries"
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-black rounded-full bg-[#060B08] hover:bg-black text-white transition-all shadow-xl shadow-black/30 hover:scale-105 active:scale-95 whitespace-nowrap"
+            to="/cement/sales"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-black rounded-full bg-[#060B08] hover:bg-black text-white transition-all shadow-xl shadow-black/30 hover:scale-105 active:scale-95 whitespace-nowrap"
           >
-            <Plus className="w-4 h-4 text-[#22C55E]" />
-            <span>+ New shipment</span>
+            <TrendingUp className="w-3.5 h-3.5 text-[#22C55E]" />
+            <span>+ Walk-in Sales Invoice</span>
+          </Link>
+          <Link
+            to="/cement/purchases"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-full bg-white/95 hover:bg-white dark:bg-[#060B08] text-[#060B08] dark:text-[#22C55E] transition-all shadow-md border border-white/80 hover:scale-105 active:scale-95 whitespace-nowrap"
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>+ Purchases Invoice</span>
           </Link>
         </div>
       </div>
 
-      {/* Top 3 Cards Grid (Exactly matching Screenshot 1 layout) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Card 1: Shipments KPI & Minimalist Vertical Bar Chart (3 cols)
-            On dark theme: Electric Orange accents on borders, tooltip, active bar, and badges */}
-        <div className="lg:col-span-3 rounded-3xl border border-[#22C55E]/30 dark:border-[#FF6B00]/40 dark:hover:border-[#FF6B00] bg-white/90 dark:bg-gradient-to-b dark:from-[#17120D] dark:to-[#0B130E] backdrop-blur-xl p-5 shadow-[0_8px_30px_rgba(34,197,94,0.06)] dark:shadow-[0_8px_32px_rgba(255,107,0,0.10)] flex flex-col justify-between transition-all">
+      {/* ------------------------------------------------------------- */}
+      {/* THE TWO CORE MANAGEMENT PILLARS (CEMENT & TRUCK) */}
+      {/* ------------------------------------------------------------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* ========================================================= */}
+        {/* PILLAR 1: CEMENT MANAGEMENT */}
+        {/* ========================================================= */}
+        <div className="rounded-3xl border-2 border-[#22C55E]/40 hover:border-[#22C55E] bg-white/95 dark:bg-[#0E1712]/95 backdrop-blur-xl p-6 shadow-card transition-all flex flex-col justify-between space-y-6 group">
           <div>
-            <div className="flex items-center justify-between pb-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <div className="p-1.5 rounded-xl bg-[#22C55E]/15 text-[#16A34A] dark:bg-[#FF6B00]/20 dark:text-[#FF6B00] dark:border dark:border-[#FF6B00]/40">
-                  <Truck className="w-4 h-4" />
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-border/80">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-[#22C55E]/15 text-[#16A34A] dark:text-[#22C55E] border border-[#22C55E]/30">
+                  <Boxes className="w-6 h-6" />
                 </div>
-                <span>Shipments</span>
+                <div>
+                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#16A34A] dark:text-[#22C55E]">
+                    Primary Commodity Trading
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-foreground group-hover:text-[#16A34A] dark:group-hover:text-[#22C55E] transition-colors">
+                    Cement Management
+                  </h2>
+                  <div className="text-xs text-muted-foreground mt-0.5 font-medium">
+                    Central Storage: <strong>Addis Ababa Central Depot (Kality Yard)</strong>
+                  </div>
+                </div>
               </div>
               <Link
-                to="/fleet/deliveries"
-                className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-[#22C55E]/10 dark:bg-[#FF6B00]/15 border border-[#22C55E]/30 dark:border-[#FF6B00]/40 text-[#16A34A] dark:text-[#FF6B00] hover:bg-[#22C55E]/20 dark:hover:bg-[#FF6B00]/25 transition-all"
+                to="/cement"
+                className="px-3 py-1 rounded-full bg-[#22C55E]/15 text-[#16A34A] dark:text-[#22C55E] text-xs font-bold hover:bg-[#22C55E] hover:text-[#060B08] transition-all flex items-center gap-1"
               >
-                View all
+                <span>Enter</span>
+                <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
 
-            <div className="mt-3">
-              <div className="text-3xl font-extrabold tracking-tight text-foreground font-sans flex items-baseline gap-2">
-                24,318
-                <span className="text-xs font-bold text-[#16A34A] dark:text-[#FF6B00] bg-[#22C55E]/15 dark:bg-[#FF6B00]/20 px-2 py-0.5 rounded-full border border-[#22C55E]/30 dark:border-[#FF6B00]/40">
-                  +14.2%
+            {/* Inventory Status (Single Addis Inventory) */}
+            <div className="mt-4 p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-foreground flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
+                  <span>Addis Central Stock: {formatQuantity(totalAddisStockQuintals, 'Qtl')}</span>
+                </span>
+                <span className="font-mono font-bold text-[#16A34A] dark:text-[#22C55E]">
+                  Valuation: {formatCurrency(totalAddisStockValue, { compact: true })}
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                In transit across all corridors
+
+              {/* Cement Grades In Stock */}
+              <div className="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+                <div className="p-2 rounded-xl bg-surface border border-border">
+                  <div className="text-[10px] text-muted-foreground font-semibold">OPC 42.5N</div>
+                  <div className="text-sm font-black text-foreground font-mono">4,850 Qtl</div>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border">
+                  <div className="text-[10px] text-muted-foreground font-semibold">PPC 32.5R</div>
+                  <div className="text-sm font-black text-foreground font-mono">1,420 Qtl</div>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border">
+                  <div className="text-[10px] text-muted-foreground font-semibold">Bulk Cement</div>
+                  <div className="text-sm font-black text-foreground font-mono">800 Qtl</div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Minimalist Bar Chart: In dark theme, active bar and highlights use Electric Orange */}
-          <div className="pt-6">
-            <div className="relative h-28 flex items-end justify-between gap-2 px-1">
-              {/* Tooltip pill above bar 4 */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-white dark:bg-[#060B08] text-foreground dark:text-[#FF6B00] text-[10px] font-mono font-bold shadow-lg flex items-center gap-1 z-10 border border-[#22C55E]/40 dark:border-[#FF6B00]/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B00] animate-ping" />
-                <span>Cross-dock 412</span>
+            {/* Cement Related Financial Performance */}
+            <div className="mt-4 space-y-2">
+              <div className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center justify-between">
+                <span>Cement Financials &amp; Margin</span>
+                <Link
+                  to="/finance/reports?report=cement_pnl"
+                  className="text-[#16A34A] dark:text-[#22C55E] text-[11px] font-bold hover:underline inline-flex items-center gap-1"
+                >
+                  <span>Cement P&amp;L Report</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
               </div>
 
-              {/* 7 Vertical Bars */}
-              {[42, 65, 38, 88, 55, 76, 60].map((h, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                  <div
-                    style={{ height: `${h}%` }}
-                    className={`w-full rounded-t-lg transition-all ${
-                      idx === 3
-                        ? 'bg-gradient-to-t from-[#16A34A] via-[#22C55E] to-[#FF6B00] dark:from-[#FF6B00] dark:to-[#FFA04D] shadow-[0_0_14px_rgba(255,107,0,0.6)]'
-                        : 'bg-[#22C55E]/20 hover:bg-[#22C55E]/40 dark:bg-[#FF6B00]/15 dark:hover:bg-[#FF6B00]/35 border-t border-[#22C55E]/40 dark:border-t-[#FF6B00]/50'
-                    }`}
-                  />
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Cement Sales Revenue</span>
+                  <span className="font-mono font-black text-base text-foreground">
+                    {formatCurrency(cementRevenue, { compact: true })}
+                  </span>
+                  <span className="text-[10px] text-[#22C55E] block font-semibold">
+                    {walkinSalesCount} Walk-in customer invoices
+                  </span>
                 </div>
-              ))}
-            </div>
-
-            {/* Bottom percentage breakdown */}
-            <div className="flex items-center justify-between pt-3 mt-2 border-t border-border/50 text-[10px] font-bold text-muted-foreground tracking-wider uppercase font-mono">
-              <span className="text-foreground dark:text-[#FF6B00]">ROAD 71%</span>
-              <span>RAIL 18%</span>
-              <span>AIR 11%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Hero Fleet Intelligence Card (6 cols) */}
-        <div className="lg:col-span-6 rounded-3xl border border-[#22C55E]/40 bg-white/90 dark:bg-[#0B130E] text-foreground dark:text-white p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
-          {/* Subtle background glow */}
-          <div className="absolute -top-12 -right-12 w-64 h-64 bg-[#22C55E]/20 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="relative z-10">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold tracking-[0.2em] text-[#16A34A] dark:text-[#22C55E] uppercase">
-                PREDICTIVE NETWORK
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#FF6B00]/15 text-[#FF6B00] border border-[#FF6B00]/30 font-extrabold text-[9px] uppercase">
-                AI Dispatch
-              </span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1 text-foreground dark:text-white">
-              Fleet Intelligence
-            </h2>
-            <p className="text-xs text-muted-foreground dark:text-white/70 mt-1 max-w-sm leading-relaxed">
-              ETA forecasting and dynamic re-routing across 42 corridors, refreshed every 90 seconds.
-            </p>
-          </div>
-
-          {/* Cargo Dispatch Illustration with Light Green bar and Electric Orange accent */}
-          <div className="my-3 py-2 flex items-center justify-center relative z-10">
-            <div className="relative flex items-center justify-center w-full max-w-md py-4">
-              <div className="flex items-center gap-4 bg-[#22C55E]/10 border border-[#22C55E]/30 p-3.5 rounded-2xl backdrop-blur-md w-full">
-                <div className="p-3 rounded-2xl bg-[#22C55E]/20 border border-[#22C55E]/50 text-[#16A34A] dark:text-[#22C55E] shadow-[0_0_15px_rgba(34,197,94,0.3)] flex-shrink-0">
-                  <Truck className="w-8 h-8" />
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Procurement (COGS)</span>
+                  <span className="font-mono font-black text-base text-foreground">
+                    {formatCurrency(cementCOGS, { compact: true })}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    Dangote, Derba, Mugher
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-foreground dark:text-white">Active Corridor Transit</span>
-                    <span className="text-[#16A34A] dark:text-[#22C55E] font-mono font-bold">98.6% On-Time</span>
-                  </div>
-                  <div className="w-full bg-[#22C55E]/15 dark:bg-white/10 rounded-full h-2 mt-2 overflow-hidden border border-[#22C55E]/20">
-                    <div className="bg-gradient-to-r from-[#16A34A] via-[#22C55E] to-[#FF6B00] h-full rounded-full w-[78%] shadow-[0_0_12px_rgba(255,107,0,0.6)]" />
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground dark:text-white/60 mt-1.5 font-mono">
-                    <span>Muger Plant &rarr; Kality Depot</span>
-                    <span className="text-[#FF6B00] font-black bg-[#FF6B00]/15 px-2 py-0.5 rounded-md border border-[#FF6B00]/30">ETA: 42 mins</span>
-                  </div>
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Cement Gross Profit</span>
+                  <span className="font-mono font-black text-base text-[#16A34A] dark:text-[#22C55E]">
+                    {formatCurrency(cementGrossProfit, { compact: true })}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block font-bold">
+                    Margin: {cementGrossMarginPct.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Customer Receivables</span>
+                  <span className="font-mono font-black text-base text-[#FF6B00]">
+                    ETB 5.16M
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    Immediate / Short cycle
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom Action Pills in Light Green & Electric Orange */}
-          <div className="flex items-center gap-2.5 relative z-10 pt-2">
+          {/* Quick Action Links */}
+          <div className="pt-4 border-t border-border flex items-center justify-between gap-2 flex-wrap">
             <Link
-              to="/fleet/gps"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#22C55E]/15 hover:bg-[#22C55E] hover:text-black text-[#16A34A] dark:text-[#22C55E] text-xs font-bold backdrop-blur-md border border-[#22C55E]/40 transition-all shadow-sm"
+              to="/cement/sales"
+              className="px-3.5 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
             >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Open control tower</span>
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Sales Invoices (Walk-in)</span>
             </Link>
             <Link
-              to="/fleet/deliveries"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-white/10 hover:bg-[#FF6B00] hover:text-white text-foreground dark:text-white text-xs font-bold backdrop-blur-md border border-[#FF6B00]/30 hover:border-[#FF6B00] transition-all shadow-xs"
+              to="/cement/purchases"
+              className="px-3.5 py-2 rounded-xl bg-surface-elevated hover:bg-surface border border-border text-foreground font-bold text-xs transition-all flex items-center gap-1.5"
             >
-              <span>Simulate delay</span>
+              <ShoppingBag className="w-3.5 h-3.5 text-[#22C55E]" />
+              <span>Purchases Invoices</span>
+            </Link>
+            <Link
+              to="/cement/inventory"
+              className="px-3.5 py-2 rounded-xl bg-surface-elevated hover:bg-surface border border-border text-foreground font-bold text-xs transition-all flex items-center gap-1.5"
+            >
+              <Boxes className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Addis Stock</span>
             </Link>
           </div>
         </div>
 
-        {/* Card 3: Calendar & Dispatch Agenda Card (3 cols)
-            On dark theme: Electric Orange accents on borders, active day, tasks, and button */}
-        <div className="lg:col-span-3 rounded-3xl border border-[#22C55E]/30 dark:border-[#FF6B00]/40 dark:hover:border-[#FF6B00] bg-white/90 dark:bg-gradient-to-b dark:from-[#17120D] dark:to-[#0B130E] backdrop-blur-xl p-5 shadow-[0_8px_30px_rgba(34,197,94,0.06)] dark:shadow-[0_8px_32px_rgba(255,107,0,0.10)] flex flex-col justify-between transition-all">
+        {/* ========================================================= */}
+        {/* PILLAR 2: TRUCK MANAGEMENT */}
+        {/* ========================================================= */}
+        <div className="rounded-3xl border-2 border-[#FF6B00]/40 hover:border-[#FF6B00] bg-white/95 dark:bg-[#0E1712]/95 backdrop-blur-xl p-6 shadow-card transition-all flex flex-col justify-between space-y-6 group">
           <div>
-            {/* Month Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-border/50 text-xs font-bold text-foreground">
-              <button className="p-1.5 rounded-lg hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/20 text-muted-foreground hover:text-[#16A34A] dark:hover:text-[#FF6B00] transition-colors">
-                &larr;
-              </button>
-              <span className="font-extrabold text-foreground">August 2026</span>
-              <button className="p-1.5 rounded-lg hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/20 text-muted-foreground hover:text-[#16A34A] dark:hover:text-[#FF6B00] transition-colors">
-                &rarr;
-              </button>
-            </div>
-
-            {/* Horizontal Week Strip: Day 14 active pill uses Electric Orange in dark theme */}
-            <div className="grid grid-cols-7 gap-1 py-3 text-center text-[10px] border-b border-border/50">
-              {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((d) => (
-                <div key={d} className="text-muted-foreground font-bold">
-                  {d}
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-border/80">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-[#FF6B00]/15 text-[#FF6B00] border border-[#FF6B00]/30">
+                  <Truck className="w-6 h-6" />
                 </div>
-              ))}
-              {[10, 11, 12, 13, 14, 15, 16].map((day) => {
-                const isActive = day === 14
-                return (
-                  <div
-                    key={day}
-                    className={`py-1.5 rounded-xl font-bold transition-all ${
-                      isActive
-                        ? 'bg-[#22C55E] dark:bg-[#FF6B00] text-black dark:text-white shadow-[0_0_14px_rgba(34,197,94,0.45)] dark:shadow-[0_0_16px_rgba(255,107,0,0.6)]'
-                        : 'text-foreground hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/20 hover:text-[#16A34A] dark:hover:text-[#FF6B00]'
-                    }`}
-                  >
-                    {day}
+                <div>
+                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#FF6B00]">
+                    Corridor Logistics &amp; Haulage
                   </div>
-                )
-              })}
-            </div>
-
-            {/* Agenda Tasks */}
-            <div className="space-y-2.5 mt-3 text-xs">
-              <div className="p-3 rounded-2xl bg-white/95 dark:bg-[#1A140F]/80 border border-[#FF6B00]/40 border-l-4 border-l-[#FF6B00] shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="font-bold text-foreground">Customs clearance review</div>
-                  <span className="text-[9px] font-black uppercase tracking-wider text-[#FF6B00] bg-[#FF6B00]/20 px-2 py-0.5 rounded-full border border-[#FF6B00]/40">
-                    Urgent
-                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-foreground group-hover:text-[#FF6B00] transition-colors">
+                    Truck Management
+                  </h2>
+                  <div className="text-xs text-muted-foreground mt-0.5 font-medium">
+                    Fleet Size: <strong>42 Heavy Commercial Haulers</strong> (700–800 Qtl)
+                  </div>
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">
-                  Port paperwork pending for 3 loads
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-2 font-mono">
-                  <span className="font-bold text-[#FF6B00] bg-[#FF6B00]/15 px-2 py-0.5 rounded-md">Modjo Terminal</span>
-                  <span className="font-semibold">09:00 AM</span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-white/95 dark:bg-[#1A140F]/80 border border-[#22C55E]/30 dark:border-[#FF6B00]/30 border-l-4 border-l-[#22C55E] dark:border-l-[#FF6B00] shadow-sm">
-                <div className="font-bold text-foreground">Depot capacity audit</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">
-                  Yard 4 walkthrough with ops leads
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-2 font-mono">
-                  <span className="font-bold text-[#16A34A] dark:text-[#FF6B00] bg-[#22C55E]/15 dark:bg-[#FF6B00]/15 px-2 py-0.5 rounded-md border border-[#22C55E]/20 dark:border-[#FF6B00]/25">
-                    Kality Central
-                  </span>
-                  <span className="font-semibold">10:45 AM</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <Link
-            to="/fleet/deliveries"
-            className="w-full mt-3 py-2.5 rounded-2xl bg-[#22C55E] dark:bg-[#FF6B00] text-[#060B08] dark:text-white text-center text-xs font-extrabold hover:bg-[#16A34A] dark:hover:bg-[#EA580C] transition-all shadow-md shadow-[#22C55E]/25 dark:shadow-[0_4px_20px_rgba(255,107,0,0.45)] block"
-          >
-            + Schedule dispatch
-          </Link>
-        </div>
-      </div>
-
-      {/* Bottom Row (Matching Screenshot 1): Left 2x2 Mini KPI Cards + Right Hub Load Heatmap */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left 7 cols: 2x2 Grid of the 4 Mini KPI Cards */}
-        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Deliveries */}
-          <div className="rounded-3xl border border-[#22C55E]/30 dark:border-[#FF6B00]/40 dark:hover:border-[#FF6B00] bg-white/90 dark:bg-gradient-to-b dark:from-[#17120D] dark:to-[#0B130E] backdrop-blur-xl p-5 shadow-[0_8px_30px_rgba(34,197,94,0.05)] dark:shadow-[0_8px_30px_rgba(255,107,0,0.08)] flex flex-col justify-between transition-all group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <div className="p-1.5 rounded-xl bg-[#22C55E]/15 text-[#16A34A] dark:bg-[#FF6B00]/20 dark:text-[#FF6B00] dark:border dark:border-[#FF6B00]/40">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <span>Deliveries</span>
-              </div>
-              <Link to="/fleet/deliveries" className="text-[11px] font-bold text-[#16A34A] dark:text-[#FF6B00] hover:underline">
-                View all
-              </Link>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl sm:text-3xl font-extrabold text-foreground font-sans">
-                6,412
-              </div>
-              <div className="text-[11px] text-[#16A34A] dark:text-[#FF6B00] font-bold mt-1.5 inline-flex items-center gap-1 bg-[#22C55E]/15 dark:bg-[#FF6B00]/20 px-2.5 py-0.5 rounded-full border border-[#22C55E]/30 dark:border-[#FF6B00]/40">
-                +12.4% vs previous period
-              </div>
-            </div>
-          </div>
-
-          {/* On-time rate */}
-          <div className="rounded-3xl border border-[#22C55E]/30 dark:border-[#FF6B00]/40 dark:hover:border-[#FF6B00] bg-white/90 dark:bg-gradient-to-b dark:from-[#17120D] dark:to-[#0B130E] backdrop-blur-xl p-5 shadow-[0_8px_30px_rgba(34,197,94,0.05)] dark:shadow-[0_8px_30px_rgba(255,107,0,0.08)] flex flex-col justify-between transition-all group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <div className="p-1.5 rounded-xl bg-[#22C55E]/15 text-[#16A34A] dark:bg-[#FF6B00]/20 dark:text-[#FF6B00] dark:border dark:border-[#FF6B00]/40">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <span>On-time rate</span>
-              </div>
-              <Link to="/fleet/deliveries" className="text-[11px] font-bold text-[#16A34A] dark:text-[#FF6B00] hover:underline">
-                View all
-              </Link>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl sm:text-3xl font-extrabold text-foreground font-sans">
-                98.6%
-              </div>
-              <div className="text-[11px] text-[#16A34A] dark:text-[#FF6B00] font-bold mt-1.5 inline-flex items-center gap-1 bg-[#22C55E]/15 dark:bg-[#FF6B00]/20 px-2.5 py-0.5 rounded-full border border-[#22C55E]/30 dark:border-[#FF6B00]/40">
-                +1.8% vs previous period
-              </div>
-            </div>
-          </div>
-
-          {/* Avg transit */}
-          <div className="rounded-3xl border border-[#22C55E]/30 dark:border-[#FF6B00]/40 dark:hover:border-[#FF6B00] bg-white/90 dark:bg-gradient-to-b dark:from-[#17120D] dark:to-[#0B130E] backdrop-blur-xl p-5 shadow-[0_8px_30px_rgba(34,197,94,0.05)] dark:shadow-[0_8px_30px_rgba(255,107,0,0.08)] flex flex-col justify-between transition-all group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <div className="p-1.5 rounded-xl bg-[#22C55E]/15 text-[#16A34A] dark:bg-[#FF6B00]/20 dark:text-[#FF6B00] dark:border dark:border-[#FF6B00]/40">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <span>Avg transit</span>
-              </div>
-              <Link to="/fleet/deliveries" className="text-[11px] font-bold text-[#16A34A] dark:text-[#FF6B00] hover:underline">
-                View all
-              </Link>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl sm:text-3xl font-extrabold text-foreground font-sans">
-                2.4d
-              </div>
-              <div className="text-[11px] text-[#16A34A] dark:text-[#FF6B00] font-bold mt-1.5 inline-flex items-center gap-1 bg-[#22C55E]/15 dark:bg-[#FF6B00]/20 px-2.5 py-0.5 rounded-full border border-[#22C55E]/30 dark:border-[#FF6B00]/40">
-                -6.1% faster than target
-              </div>
-            </div>
-          </div>
-
-          {/* Fleet usage */}
-          <div className="rounded-3xl border border-[#22C55E]/30 dark:border-[#FF6B00]/40 dark:hover:border-[#FF6B00] bg-white/90 dark:bg-gradient-to-b dark:from-[#17120D] dark:to-[#0B130E] backdrop-blur-xl p-5 shadow-[0_8px_30px_rgba(34,197,94,0.05)] dark:shadow-[0_8px_30px_rgba(255,107,0,0.08)] flex flex-col justify-between transition-all group">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <div className="p-1.5 rounded-xl bg-[#22C55E]/15 text-[#16A34A] dark:bg-[#FF6B00]/20 dark:text-[#FF6B00] dark:border dark:border-[#FF6B00]/40">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <span>Fleet usage</span>
-              </div>
-              <Link to="/fleet/trucks" className="text-[11px] font-bold text-[#16A34A] dark:text-[#FF6B00] hover:underline">
-                View all
-              </Link>
-            </div>
-            <div className="mt-4">
-              <div className="text-2xl sm:text-3xl font-extrabold text-foreground font-sans">
-                93%
-              </div>
-              <div className="text-[11px] text-[#16A34A] dark:text-[#FF6B00] font-bold mt-1.5 inline-flex items-center gap-1 bg-[#22C55E]/15 dark:bg-[#FF6B00]/20 px-2.5 py-0.5 rounded-full border border-[#22C55E]/30 dark:border-[#FF6B00]/40">
-                +3.9% vs previous period
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right 5 cols: Hub load by day Heatmap (Image 1 style) */}
-        <div className="lg:col-span-5 rounded-3xl border border-[#22C55E]/30 dark:border-[#FF6B00]/40 dark:hover:border-[#FF6B00] bg-white/90 dark:bg-gradient-to-b dark:from-[#17120D] dark:to-[#0B130E] backdrop-blur-xl p-5 shadow-[0_8px_30px_rgba(34,197,94,0.06)] dark:shadow-[0_8px_30px_rgba(255,107,0,0.08)] flex flex-col justify-between space-y-3 transition-all">
-          <div>
-            <div className="flex items-center justify-between pb-2 border-b border-border/50">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <div className="p-1.5 rounded-xl bg-[#22C55E]/15 text-[#16A34A] dark:bg-[#FF6B00]/20 dark:text-[#FF6B00] dark:border dark:border-[#FF6B00]/40">
-                  <Boxes className="w-4 h-4" />
-                </div>
-                <span>Hub load by day</span>
               </div>
               <Link
-                to="/fleet/gps"
-                className="text-[11px] font-bold text-[#16A34A] dark:text-[#FF6B00] hover:underline"
+                to="/fleet"
+                className="px-3 py-1 rounded-full bg-[#FF6B00]/15 text-[#FF6B00] text-xs font-bold hover:bg-[#FF6B00] hover:text-white transition-all flex items-center gap-1"
               >
-                View all
+                <span>Enter</span>
+                <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
 
-            {/* Legend pills in luminous Light Green & Electric Orange in dark theme */}
-            <div className="flex items-center gap-2.5 py-2.5 text-[10px] text-muted-foreground font-semibold flex-wrap">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#22C55E]/20 dark:bg-[#FF6B00]/20 border border-[#22C55E]/30 dark:border-[#FF6B00]/40" /> Light
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#22C55E]/40 dark:bg-[#FF6B00]/40" /> Steady
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#22C55E]/70 dark:bg-[#FF6B00]/70" /> Heavy
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#22C55E] dark:bg-[#FF6B00] shadow-sm dark:shadow-[0_0_8px_rgba(255,107,0,0.6)]" /> At capacity
-              </span>
+            {/* Fleet Status Summary */}
+            <div className="mt-4 p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-foreground flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#FF6B00] animate-pulse" />
+                  <span>Haulage Road Status: {totalTrucks} Commercial Haulers</span>
+                </span>
+                <span className="font-mono font-bold text-[#FF6B00]">
+                  42 Drivers Assigned
+                </span>
+              </div>
+
+              {/* Truck Fleet Breakdown */}
+              <div className="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+                <div className="p-2 rounded-xl bg-surface border border-border">
+                  <div className="text-[10px] text-muted-foreground font-semibold">In Transit</div>
+                  <div className="text-sm font-black text-[#FF6B00] font-mono">{inTransitTrucks || 24} Trucks</div>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border">
+                  <div className="text-[10px] text-muted-foreground font-semibold">Available</div>
+                  <div className="text-sm font-black text-[#16A34A] dark:text-[#22C55E] font-mono">{availableTrucks || 12} Trucks</div>
+                </div>
+                <div className="p-2 rounded-xl bg-surface border border-border">
+                  <div className="text-[10px] text-muted-foreground font-semibold">In Workshop</div>
+                  <div className="text-sm font-black text-muted-foreground font-mono">{workshopTrucks || 6} Trucks</div>
+                </div>
+              </div>
             </div>
 
-            {/* Matrix Grid */}
-            <div className="space-y-2 mt-1">
-              {hubRows.map((hub) => (
-                <div key={hub.code} className="flex items-center gap-2 text-xs">
-                  <span className="w-8 font-mono font-bold text-muted-foreground text-[10px]">
-                    {hub.code}
-                  </span>
-                  <div className="grid grid-cols-12 gap-1 flex-1">
-                    {hub.loads.map((load, idx) => (
-                      <div
-                        key={idx}
-                        className={`h-5 rounded-md transition-all ${getHeatmapColor(load)} hover:scale-105`}
-                        title={`${hub.name} — Day ${hubDays[idx]}: ${load.toUpperCase()}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+            {/* Truck Related Financial Performance */}
+            <div className="mt-4 space-y-2">
+              <div className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center justify-between">
+                <span>Truck Financials &amp; Freight Margin</span>
+                <Link
+                  to="/finance/reports?report=transport_pnl"
+                  className="text-[#FF6B00] text-[11px] font-bold hover:underline inline-flex items-center gap-1"
+                >
+                  <span>Truck P&amp;L Report</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
 
-              {/* Day numbers */}
-              <div className="flex items-center gap-2 text-[9px] font-mono text-muted-foreground pt-1">
-                <span className="w-8" />
-                <div className="grid grid-cols-12 gap-1 flex-1 text-center font-bold">
-                  {hubDays.map((d) => (
-                    <span key={d}>{d}</span>
-                  ))}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Freight Haulage Revenue</span>
+                  <span className="font-mono font-black text-base text-foreground">
+                    {formatCurrency(truckFreightRevenue, { compact: true })}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    Full load &amp; co-loading
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Direct Fuel Expenses</span>
+                  <span className="font-mono font-black text-base text-foreground">
+                    {formatCurrency(directFuelCost, { compact: true })}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    Total bulk diesel outlays
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Truck Gross Margin</span>
+                  <span className="font-mono font-black text-base text-[#FF6B00]">
+                    {formatCurrency(truckGrossProfit, { compact: true })}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block font-bold">
+                    Margin: {truckGrossMarginPct.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-muted-foreground text-[11px] block">Workshop Maintenance</span>
+                  <span className="font-mono font-black text-base text-foreground">
+                    {formatCurrency(maintenanceCost, { compact: true })}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block">
+                    Tires, lubricants, service
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Quick Action Links */}
+          <div className="pt-4 border-t border-border flex items-center justify-between gap-2 flex-wrap">
+            <Link
+              to="/fleet/deliveries"
+              className="px-3.5 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#EA580C] text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>Active Deliveries</span>
+            </Link>
+            <Link
+              to="/fleet/trucks"
+              className="px-3.5 py-2 rounded-xl bg-surface-elevated hover:bg-surface border border-border text-foreground font-bold text-xs transition-all flex items-center gap-1.5"
+            >
+              <Truck className="w-3.5 h-3.5 text-[#FF6B00]" />
+              <span>42 Trucks Fleet</span>
+            </Link>
+            <Link
+              to="/fleet/fuel"
+              className="px-3.5 py-2 rounded-xl bg-surface-elevated hover:bg-surface border border-border text-foreground font-bold text-xs transition-all flex items-center gap-1.5"
+            >
+              <Fuel className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Fuel Outlays</span>
+            </Link>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* OVERALL CORPORATE FINANCE & TREASURY */}
+      {/* ------------------------------------------------------------- */}
+      <div className="rounded-3xl border border-border bg-white/95 dark:bg-[#0E1712]/95 backdrop-blur-xl p-6 sm:p-7 shadow-card space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-border gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-surface-elevated border border-border text-foreground">
+              <Landmark className="w-6 h-6 text-[#22C55E]" />
+            </div>
+            <div>
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                Consolidated Corporate Treasury
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-foreground">
+                Overall Corporate Finance
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Consolidated 10 commercial bank portfolios, automated reconciliation, and combined P&amp;L roll-up.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              to="/finance/reconciliation"
+              className="px-4 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
+            >
+              <Scale className="w-3.5 h-3.5" />
+              <span>Reconciliation Desk</span>
+            </Link>
+            <Link
+              to="/finance/reports?report=combined_pnl"
+              className="px-4 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#EA580C] text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
+            >
+              <FileBarChart className="w-3.5 h-3.5" />
+              <span>Combined P&amp;L</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* 4 Key Overall Finance Stat Blocks */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <div className="p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-1">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              10 Bank Portfolios
+            </span>
+            <div className="text-2xl font-black text-foreground font-mono">
+              {formatCurrency(totalBankLiquidity, { compact: true })}
+            </div>
+            <div className="text-[11px] text-[#16A34A] dark:text-[#22C55E] font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>CBE, Awash, Abyssinia, Dashen</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-1">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Reconciliation Health
+            </span>
+            <div className="text-2xl font-black text-[#16A34A] dark:text-[#22C55E] font-mono">
+              94.2% Match
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Multi-bank statement automated engine
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-1">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Due to Members
+            </span>
+            <div className="text-2xl font-black text-[#FF6B00] font-mono">
+              {formatCurrency(totalMemberOwed, { compact: true })}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Partner outlays (zero P&amp;L double-count)
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-surface-elevated border border-border/80 space-y-1">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Combined Gross Margin
+            </span>
+            <div className="text-2xl font-black text-foreground font-mono">
+              {formatCurrency(combinedOperatingGross, { compact: true })}
+            </div>
+            <div className="text-[11px] text-[#22C55E] font-semibold">
+              Cement + Truck direct margins
+            </div>
+          </div>
+
+        </div>
+
+        {/* Bottom Fast Links */}
+        <div className="pt-2 flex items-center justify-between border-t border-border/70 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4 flex-wrap">
+            <Link to="/finance/banks" className="hover:text-foreground font-semibold flex items-center gap-1">
+              <Landmark className="w-3 h-3 text-[#22C55E]" />
+              <span>Bank Accounts</span>
+            </Link>
+            <Link to="/finance/transactions" className="hover:text-foreground font-semibold flex items-center gap-1">
+              <DollarSign className="w-3 h-3 text-[#22C55E]" />
+              <span>Transaction Journal</span>
+            </Link>
+            <Link to="/finance/member-expenses" className="hover:text-foreground font-semibold flex items-center gap-1">
+              <Users className="w-3 h-3 text-[#FF6B00]" />
+              <span>Member Reimbursements</span>
+            </Link>
+          </div>
           <Link
-            to="/fleet/gps"
-            className="w-full py-2.5 text-center text-xs font-bold rounded-2xl bg-[#22C55E]/15 hover:bg-[#22C55E] text-[#16A34A] hover:text-[#060B08] dark:bg-[#FF6B00]/15 dark:hover:bg-[#FF6B00] dark:text-[#FF6B00] dark:hover:text-white border border-[#22C55E]/40 dark:border-[#FF6B00]/40 transition-all block font-mono shadow-sm"
+            to="/finance/reports"
+            className="text-foreground hover:text-[#22C55E] font-bold inline-flex items-center gap-1"
           >
-            Open Logistics Corridor Radar
+            <span>Open Financial Reports →</span>
           </Link>
         </div>
       </div>
 
-      {/* Slim 1-Line Quick Access Portal Strip */}
-      <div className="rounded-2xl p-3 px-4 bg-white/75 dark:bg-[#0E1712]/75 border border-[#22C55E]/20 dark:border-white/10 backdrop-blur-md flex items-center justify-between flex-wrap gap-3 text-xs font-bold text-muted-foreground">
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-foreground">
-          Quick Access Portals:
-        </span>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Link
-            to="/fleet/deliveries"
-            className="px-3 py-1 rounded-full bg-surface hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/15 hover:text-[#16A34A] dark:hover:text-[#FF6B00] border border-border transition-colors"
-          >
-            Corridor Waybills &rarr;
-          </Link>
-          <Link
-            to="/fleet/gps"
-            className="px-3 py-1 rounded-full bg-surface hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/15 hover:text-[#16A34A] dark:hover:text-[#FF6B00] border border-border transition-colors"
-          >
-            Live GPS Radar &rarr;
-          </Link>
-          <Link
-            to="/finance/banks"
-            className="px-3 py-1 rounded-full bg-surface hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/15 hover:text-[#16A34A] dark:hover:text-[#FF6B00] border border-border transition-colors"
-          >
-            10 Bank Accounts &rarr;
-          </Link>
-          <Link
-            to="/finance/transactions"
-            className="px-3 py-1 rounded-full bg-surface hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/15 hover:text-[#16A34A] dark:hover:text-[#FF6B00] border border-border transition-colors"
-          >
-            Member Claims &rarr;
-          </Link>
-          <Link
-            to="/finance/reports"
-            className="px-3 py-1 rounded-full bg-surface hover:bg-[#22C55E]/15 dark:hover:bg-[#FF6B00]/15 hover:text-[#16A34A] dark:hover:text-[#FF6B00] border border-border transition-colors"
-          >
-            P&amp;L Reports &rarr;
-          </Link>
-        </div>
-      </div>
     </div>
   )
 }
