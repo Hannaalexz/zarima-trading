@@ -24,7 +24,6 @@ import {
   HelpCircle,
   ChevronRight,
   Gauge,
-  Download,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -33,7 +32,6 @@ import { useStore } from '@/data/storeContext'
 import { useToast } from '@/hooks/useToast'
 import { formatCurrency, formatDate } from '@/lib/formatters'
 import { FleetPurchase, MaintenanceRecord } from '@/types'
-import { downloadImportTemplate } from '@/lib/downloadTemplates'
 
 export const MaintenancePage: React.FC = () => {
   const {
@@ -102,7 +100,6 @@ export const MaintenancePage: React.FC = () => {
   const [selectedTxToReconcile, setSelectedTxToReconcile] = useState<any>(null)
   const [manualStatementRef, setManualStatementRef] = useState('CBE-STMT-OCT26-01')
   const [manualReconcileNotes, setManualReconcileNotes] = useState('')
-  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false)
 
   // Calculate Service Due Trucks
   const serviceDueTrucks = trucks.filter((t) => {
@@ -422,52 +419,6 @@ export const MaintenancePage: React.FC = () => {
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {/* Download Fleet Import Templates Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsTemplateMenuOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-border hover:border-forest/50 text-foreground transition-all shadow-xs"
-                title="Download official CSV templates for bulk fleet imports"
-              >
-                <Download className="w-3.5 h-3.5 text-forest" />
-                <span>Download Templates</span>
-              </button>
-              {isTemplateMenuOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-72 rounded-2xl bg-surface border border-border shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95">
-                  <div className="flex items-center justify-between px-2 py-1 border-b border-border mb-1.5">
-                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Fleet Import Templates</span>
-                    <span className="text-[9px] bg-forest/15 text-forest font-bold px-1.5 py-0.5 rounded">Excel / CSV</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      downloadImportTemplate('fleetOdometer')
-                      setIsTemplateMenuOpen(false)
-                    }}
-                    className="w-full text-left p-2 rounded-xl hover:bg-forest/10 flex items-start gap-2.5 text-xs text-foreground transition-colors group"
-                  >
-                    <Gauge className="w-4 h-4 text-forest shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold group-hover:text-forest transition-colors">Truck Odometers &amp; Trips</div>
-                      <div className="text-[10px] text-muted-foreground">Bulk update km readings to trigger 10,000 km oil alerts</div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      downloadImportTemplate('fleetMaintenance')
-                      setIsTemplateMenuOpen(false)
-                    }}
-                    className="w-full text-left p-2 rounded-xl hover:bg-forest/10 flex items-start gap-2.5 text-xs text-foreground transition-colors group mt-1"
-                  >
-                    <Wrench className="w-4 h-4 text-[#FF6B00] shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold group-hover:text-[#FF6B00] transition-colors">Fleet Maintenance &amp; Parts</div>
-                      <div className="text-[10px] text-muted-foreground">Tires, filters, oil bills &amp; repair workshop ledgers</div>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
-
             <button
               onClick={() => handleOpenTruckConfig(trucks[0]?.plateNumber || '')}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-purple-500/40 hover:bg-purple-500/10 text-foreground transition-all shadow-xs"

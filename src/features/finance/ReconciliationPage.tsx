@@ -71,9 +71,6 @@ export const ReconciliationPage: React.FC = () => {
   const [activeViewMode, setActiveViewMode] = useState<'daily_statements' | 'annual_balances'>('daily_statements')
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<number>(2026)
 
-  // Download Templates Modal
-  const [isDownloadTemplatesModalOpen, setIsDownloadTemplatesModalOpen] = useState(false)
-
   // Editing Beginning Balance inline
   const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null)
   const [editingBalanceVal, setEditingBalanceVal] = useState<string>('')
@@ -501,26 +498,12 @@ export const ReconciliationPage: React.FC = () => {
     setIsAddBalanceModalOpen(false)
   }
 
-  const handleDownloadAllTemplates = () => {
-    const keys = Object.keys(IMPORT_TEMPLATES) as Array<keyof typeof IMPORT_TEMPLATES>
-    keys.forEach((key, index) => {
-      setTimeout(() => {
-        downloadImportTemplate(key)
-      }, index * 200)
-    })
-    addToast({
-      type: 'success',
-      title: 'Templates Downloading',
-      description: 'Downloaded all 6 official Excel / CSV templates to your computer.',
-    })
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Bank Reconciliation & Annual Balances"
-        description="Extract, normalize, and match official bank statements (.xlsx, .pdf, .docx) against company ledgers across all 10 corporate bank accounts, anchored by certified annual beginning balances."
-        badgeText="Treasury Operations"
+        title="Bank Reconciliation"
+        description="Reconcile bank statements against general ledgers across corporate accounts."
+        badgeText="Treasury"
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             {/* View Switcher Tabs */}
@@ -534,7 +517,7 @@ export const ReconciliationPage: React.FC = () => {
                 }`}
               >
                 <Scale className="w-3.5 h-3.5" />
-                <span>Statements &amp; Auto-Reconcile</span>
+                <span>Statements &amp; Reconciliation</span>
               </button>
               <button
                 onClick={() => setActiveViewMode('annual_balances')}
@@ -549,14 +532,14 @@ export const ReconciliationPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Download All Import Templates Button */}
+            {/* Direct Download Bank Statement Template Button */}
             <button
-              onClick={() => setIsDownloadTemplatesModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface border border-border hover:border-forest/50 text-foreground font-bold text-xs shadow-xs transition-all active:scale-95"
-              title="Download official CSV templates for bank statements, fleet odometers, cement purchases, payroll, etc."
+              onClick={() => downloadImportTemplate('bankStatement')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface border border-border hover:border-forest text-foreground text-xs font-semibold shadow-xs transition-all active:scale-95"
+              title="Download standard CSV template to prepare any bank's statement for reconciliation"
             >
-              <Download className="w-4 h-4 text-forest" />
-              <span>Download Templates</span>
+              <Download className="w-3.5 h-3.5 text-forest" />
+              <span>Download Template</span>
             </button>
 
             {/* Import Bank Statement Button */}
@@ -574,40 +557,15 @@ export const ReconciliationPage: React.FC = () => {
         }
       />
 
-      {/* Active Persona & Operating Invariant Banner */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#22C55E]/15 via-surface to-transparent border border-[#22C55E]/30 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-xl bg-[#22C55E]/20 text-[#16A34A] dark:text-[#22C55E] flex items-center justify-center font-black text-xs">
-            {currentUser?.avatarInitials || 'BT'}
-          </div>
-          <div>
-            <span className="font-bold text-foreground">
-              {currentUser?.role === 'accountant' ? 'Reconciliation Desk: Bethlehem Tefera' : 'Administrator: Dawit Tadesse'}
-            </span>
-            <span className="text-muted-foreground ml-2">
-              Automated multi-bank reconciliation engine matching statement lines against internal transaction journals across 10 bank accounts.
-            </span>
-          </div>
-        </div>
-        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[#22C55E]/20 text-[#16A34A] dark:text-[#22C55E] border border-[#22C55E]/30 flex-shrink-0">
-          Reconciliation Desk
-        </span>
-      </div>
-
       {activeViewMode === 'annual_balances' ? (
         <div className="space-y-6">
           {/* Fiscal Year Selector Header */}
           <div className="p-4 rounded-2xl bg-surface border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-foreground text-sm uppercase tracking-wider">Company Fiscal Year Opening Balances</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-forest/15 text-forest border border-forest/30">
-                  Audited Carryforward
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Statutory opening cash &amp; bank ledger positions for Zarima Trading across corporate accounts. Required anchor for all bank reconciliations.
-              </p>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-foreground text-sm uppercase tracking-wider">Company Fiscal Year Opening Balances</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-forest/15 text-forest border border-forest/30">
+                Audited
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -716,9 +674,6 @@ export const ReconciliationPage: React.FC = () => {
                   <h3 className="font-bold text-foreground text-sm">
                     Bank Accounts Opening Ledgers &bull; FY {selectedFiscalYear} ({selectedFiscalYear - 8} E.C.)
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Inline editable beginning balances with opening journal voucher audit references.
-                  </p>
                 </div>
               </div>
               <span className="text-xs text-muted-foreground font-mono">
@@ -837,20 +792,6 @@ export const ReconciliationPage: React.FC = () => {
               </table>
             </div>
           </div>
-
-          {/* Accounting Invariant Notice */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-forest/10 via-surface to-transparent border border-forest/30 text-xs flex items-start gap-3 shadow-xs">
-            <ShieldCheck className="w-5 h-5 text-forest shrink-0 mt-0.5" />
-            <div>
-              <div className="font-bold text-foreground">Statutory Carryforward Invariant</div>
-              <div className="text-muted-foreground mt-0.5 leading-relaxed">
-                Under Ethiopian corporate treasury standards, each fiscal year's ending reconciled balance forms the immutable opening balance for the subsequent year. Daily bank statement reconciliations bridge directly from this opening ledger using: 
-                <span className="font-mono font-bold text-foreground ml-1">
-                  Reconciled Balance = Annual Beginning Balance + Σ(Inflows) - Σ(Outflows)
-                </span>.
-              </div>
-            </div>
-          </div>
         </div>
       ) : (
         <>
@@ -922,35 +863,26 @@ export const ReconciliationPage: React.FC = () => {
       </div>
 
       {/* Annual Beginning Balance Anchor for Selected Account */}
-      <div className="p-3.5 rounded-2xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-forest/15 text-forest flex items-center justify-center font-bold shrink-0">
-            <Landmark className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-foreground">FY 2026 Certified Beginning Balance:</span>
-              <span className="font-extrabold text-forest font-mono">
-                ETB {(activeBankBeginningBalance?.beginningBalanceETB || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest/15 text-forest font-bold border border-forest/30">
-                {activeBankBeginningBalance?.openingBalanceVoucherRef || 'OPB-2026-CERTIFIED'}
-              </span>
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">
-              Anchor for {activeBankAccount?.bankName}. Reconciled Balance = Beginning Balance + Inflows - Outflows.
-            </div>
-          </div>
+      <div className="px-4 py-2.5 rounded-xl bg-surface border border-border flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Landmark className="w-4 h-4 text-forest shrink-0" />
+          <span className="text-muted-foreground">FY 2026 Opening Balance:</span>
+          <span className="font-mono font-bold text-foreground">
+            ETB {(activeBankBeginningBalance?.beginningBalanceETB || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-elevated border border-border text-muted-foreground font-mono">
+            {activeBankBeginningBalance?.openingBalanceVoucherRef || 'OPB-2026'}
+          </span>
         </div>
         <button
           onClick={() => {
             setSelectedFiscalYear(2026)
             setActiveViewMode('annual_balances')
           }}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-forest/10 hover:bg-forest/20 text-forest font-bold text-xs transition-colors shrink-0 self-end sm:self-auto"
+          className="text-xs font-semibold text-forest hover:underline flex items-center gap-1"
         >
-          <span>View Annual Ledger</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <span>Annual Balances</span>
+          <ArrowRight className="w-3 h-3" />
         </button>
       </div>
 
@@ -1253,17 +1185,28 @@ export const ReconciliationPage: React.FC = () => {
           <div className="relative w-full max-w-2xl rounded-3xl bg-surface border border-border p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
-                <h3 className="text-lg font-bold text-foreground">Import Bank Statement</h3>
+                <h3 className="text-base font-bold text-foreground">Import Bank Statement</h3>
                 <p className="text-xs text-muted-foreground">
-                  Upload official bank statement files (.xlsx, .xls, .pdf, .docx) for automated reconciliation.
+                  Upload bank statement file (.xlsx, .xls, .pdf, .docx, .csv)
                 </p>
               </div>
-              <button
-                onClick={() => setIsUploadModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-surface-elevated hover:bg-border flex items-center justify-center text-muted-foreground"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadImportTemplate('bankStatement')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-forest/15 border border-border text-foreground hover:text-forest text-xs font-semibold transition-all shadow-xs"
+                  title="Download standard template to prepare any bank statement"
+                >
+                  <Download className="w-3.5 h-3.5 text-forest" />
+                  <span>Download Template</span>
+                </button>
+                <button
+                  onClick={() => setIsUploadModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-surface-elevated hover:bg-border flex items-center justify-center text-muted-foreground"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {uploadStep === 'select' && (
@@ -1344,25 +1287,6 @@ export const ReconciliationPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Download Bank Statement Template Banner */}
-                <div className="p-3.5 rounded-2xl bg-forest/10 border border-forest/30 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <FileSpreadsheet className="w-5 h-5 text-forest shrink-0" />
-                    <div>
-                      <div className="font-bold text-foreground">Need the Official Bank Statement Format?</div>
-                      <div className="text-[11px] text-muted-foreground">Download pre-formatted Excel / CSV template with CBE, Awash, &amp; Dashen sample rows.</div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => downloadImportTemplate('bankStatement')}
-                    className="px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs transition-all active:scale-95"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Template</span>
-                  </button>
-                </div>
-
                 {/* Upload Drag & Drop Area */}
                 <div className="border-2 border-dashed border-border hover:border-[#22C55E]/60 rounded-3xl p-6 text-center space-y-2 bg-surface-elevated/40 transition-colors cursor-pointer relative">
                   <input
@@ -1375,11 +1299,8 @@ export const ReconciliationPage: React.FC = () => {
                     <Upload className="w-6 h-6" />
                   </div>
                   <div className="text-sm font-bold text-foreground">
-                    Drop your statement file here or <span className="text-[#FF6B00]">browse</span>
+                    Drop statement file here or <span className="text-[#FF6B00]">browse</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Supports Commercial Bank of Ethiopia (CBE), Awash, Dashen, Hibret electronic statements.
-                  </p>
                 </div>
               </div>
             )}
@@ -1402,10 +1323,6 @@ export const ReconciliationPage: React.FC = () => {
                   >
                     Change File
                   </button>
-                </div>
-
-                <div className="p-3 rounded-xl bg-surface-elevated border border-border text-[11px] text-muted-foreground">
-                  <strong className="text-foreground">Extraction Verification &amp; Correction:</strong> Review parsed transaction lines below. You can edit dates, references, descriptions, or amounts, remove misparsed rows, or add missing lines before committing to the matching engine.
                 </div>
 
                 {/* Editable Preview Table */}
@@ -1701,10 +1618,6 @@ export const ReconciliationPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/30 text-[11px] text-foreground">
-              <strong>Invariant:</strong> This records a single verified transaction in the general ledger with status <code>Reconciled</code> and matches it to this statement line. No duplicated expenses.
-            </div>
-
             <div className="pt-3 border-t border-border flex items-center justify-end gap-3">
               <button
                 type="button"
@@ -1719,108 +1632,6 @@ export const ReconciliationPage: React.FC = () => {
                 className="px-5 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold shadow-md active:scale-95 transition-all"
               >
                 Post to Ledger &amp; Reconcile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* DOWNLOADABLE IMPORT TEMPLATES MODAL */}
-      {isDownloadTemplatesModalOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface border border-border rounded-3xl w-full max-w-4xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 my-8">
-            <div className="flex items-start justify-between pb-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-forest/15 text-forest flex items-center justify-center font-bold">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-foreground text-lg">
-                    Zarima ERP &bull; Official Downloadable Import Templates
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Pre-formatted CSV templates with UTF-8 BOM encoding for seamless 1-click opening in Microsoft Excel without character corruption.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsDownloadTemplatesModalOpen(false)}
-                className="p-2 rounded-xl hover:bg-surface-elevated text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Batch Download Header */}
-            <div className="p-3.5 rounded-2xl bg-forest/10 border border-forest/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-forest shrink-0" />
-                <span className="font-semibold text-foreground">
-                  Need all templates? Download the complete operational template suite for Zarima Trading.
-                </span>
-              </div>
-              <button
-                onClick={handleDownloadAllTemplates}
-                className="px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95 shrink-0"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download All 6 Templates</span>
-              </button>
-            </div>
-
-            {/* Grid of Templates */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
-              {Object.values(IMPORT_TEMPLATES).map((tmpl) => (
-                <div
-                  key={tmpl.id}
-                  className="p-4 rounded-2xl border border-border bg-surface-elevated/40 hover:border-forest/40 transition-all flex flex-col justify-between space-y-3"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-forest/15 text-forest border border-forest/30">
-                        {tmpl.category}
-                      </span>
-                      <span className="font-mono text-[10px] text-muted-foreground">{tmpl.filename}</span>
-                    </div>
-                    <h4 className="font-bold text-foreground text-sm">{tmpl.title}</h4>
-                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                      {tmpl.description}
-                    </p>
-
-                    <div className="mt-2.5">
-                      <div className="text-[10px] font-bold text-foreground mb-1 uppercase tracking-wider">Columns ({tmpl.headers.length}):</div>
-                      <div className="flex flex-wrap gap-1">
-                        {tmpl.headers.map((h, i) => (
-                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border text-muted-foreground font-mono">
-                            {h.split('(')[0].trim()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-border flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">
-                      {tmpl.sampleRows.length} sample rows included
-                    </span>
-                    <button
-                      onClick={() => downloadImportTemplate(tmpl.id as any)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest hover:bg-forest-dark text-white text-xs font-bold shadow-xs transition-all active:scale-95"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download CSV</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-3 border-t border-border flex justify-end">
-              <button
-                onClick={() => setIsDownloadTemplatesModalOpen(false)}
-                className="px-5 py-2 rounded-xl bg-surface-elevated hover:bg-border text-foreground font-bold text-xs"
-              >
-                Close
               </button>
             </div>
           </div>

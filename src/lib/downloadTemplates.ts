@@ -17,8 +17,8 @@ interface TemplateDefinition {
 export const IMPORT_TEMPLATES: Record<string, TemplateDefinition> = {
   bankStatement: {
     id: 'bankStatement',
-    title: 'Bank Statement Import Template',
-    filename: 'Zarima_Bank_Statement_Import_Template.csv',
+    title: 'Zarima Bank Statement Reconciliation Template',
+    filename: 'Zarima_Bank_Statement_Reconciliation_Template.csv',
     category: 'Banking & Reconciliation',
     description:
       'Official template for importing monthly/daily bank statements (CBE, Awash, Dashen, Abyssinia, etc.) into the automated reconciliation engine.',
