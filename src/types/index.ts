@@ -105,6 +105,8 @@ export interface Truck {
   operationalStatus: TruckStatus
   mileageKm: number
   lastServiceDate: string
+  lastServiceKm?: number
+  serviceIntervalKm?: number
   nextServiceDueKm?: number
   nextServiceDueDate?: string
   ownershipType?: 'Zarima Owned' | 'Subcontracted / Partner'
@@ -189,11 +191,24 @@ export interface MaintenanceRecord {
   workshopName: string
   costETB: number
   status: 'Completed' | 'In Progress' | 'Scheduled'
+  lastServiceKm?: number
+  serviceIntervalKm?: number
   nextServiceDueKm: number
   nextServiceDueDate?: string
   partsReplaced?: string
   notes?: string
   businessActivity?: 'Transport'
+  
+  // General Ledger Debit/Credit & Bank Reconciliation
+  paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'Member Outlay'
+  paidFromAccountId?: string
+  paidFromAccountName?: string
+  disbursementRef?: string
+  isReconciled?: boolean
+  reconciliationStatus?: 'Reconciled' | 'Pending Statement Match'
+  reconciledDate?: string
+  reconciledStatementRef?: string
+  journalEntryId?: string
 }
 
 export interface FleetPurchase {
@@ -211,6 +226,17 @@ export interface FleetPurchase {
   receiptNo?: string
   notes?: string
   businessActivity?: 'Transport'
+  
+  // General Ledger Debit/Credit & Bank Reconciliation
+  paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'Member Outlay'
+  paidFromAccountId?: string
+  paidFromAccountName?: string
+  disbursementRef?: string
+  isReconciled?: boolean
+  reconciliationStatus?: 'Reconciled' | 'Pending Statement Match'
+  reconciledDate?: string
+  reconciledStatementRef?: string
+  journalEntryId?: string
 }
 
 export interface FuelExpense {

@@ -100,8 +100,11 @@ interface StoreContextType {
   maintenance: MaintenanceRecord[]
   addMaintenance: (record: Omit<MaintenanceRecord, 'id'>) => void
   updateMaintenance: (id: string, updated: Partial<MaintenanceRecord>) => void
+  toggleReconcileMaintenance: (maintenanceId: string, statementRef?: string) => void
   fleetPurchases: FleetPurchase[]
   addFleetPurchase: (purchase: Omit<FleetPurchase, 'id'>) => void
+  toggleReconcileFleetPurchase: (purchaseId: string, statementRef?: string) => void
+  updateTruckServiceInterval: (plateNumber: string, intervalKm: number) => void
   fuelExpenses: FuelExpense[]
   addFuelExpense: (expense: Omit<FuelExpense, 'id'>) => void
   
@@ -806,24 +809,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   const addMaintenance = (record: Omit<MaintenanceRecord, 'id'>) => {
+    const maintenanceId = `MNT-2026-04${maintenance.length + 5}`
+    const cost = Number(record.costETB || 0)
+    const bankId = record.paidFromAccountId || 'BANK-01'
+    const matchedBank = bankAccounts.find((b) => b.id === bankId) || bankAccounts[0]
+    const wireRef = record.disbursementRef || `CBE-MNT-2026-${Date.now().toString().slice(-5)}`
+    const txId = `TXN-MNT-${Date.now().toString().slice(-4)}`
+
     const newRec: MaintenanceRecord = {
       ...record,
-      id: `MNT-2026-04${maintenance.length + 5}`,
+      id: maintenanceId,
+      paidFromAccountId: bankId,
+      paidFromAccountName: matchedBank.bankName,
+      disbursementRef: wireRef,
+      isReconciled: false,
+      reconciliationStatus: 'Pending Statement Match',
+      journalEntryId: txId,
     }
     setMaintenance([newRec, ...maintenance])
 
-    // Update truck's last service date and threshold if matched
-    setTrucks((prev) =>
-      prev.map((t) =>
-        t.plateNumber === record.truckPlate
-          ? {
-              ...t,
-              lastServiceDate: record.date,
-              nextServiceDueKm: record.nextServiceDueKm || t.nextServiceDueKm,
-              operationalStatus: 'Available' as const,
-            }
-          : t
+    // 1. Post General Ledger Journal Transaction (Debit: Fleet Operating Expense / Credit: Bank Account)
+    if (cost > 0) {
+      const journalTx: FinancialTransaction = {
+        id: txId,
+        referenceNumber: wireRef,
+        date: record.date || new Date().toISOString().split('T')[0],
+        type: 'Expense',
+        category: 'Truck Maintenance & Servicing',
+        fromAccount: matchedBank.bankName,
+        toAccount: record.workshopName || 'Authorized Workshop',
+        amountETB: cost,
+        businessActivity: 'Transport',
+        status: 'Pending Reconciliation',
+        notes: `Preventive Maintenance: ${record.serviceType} for ${record.truckPlate} at ${record.workshopName}. (Debit: Fleet Operating Expense / Credit: ${matchedBank.bankName})`,
+      }
+      setTransactions((prev) => [journalTx, ...prev])
+
+      // 2. Decrement Company Bank Account balance
+      setBankAccounts((prev) =>
+        prev.map((b) => (b.id === bankId ? { ...b, balanceETB: b.balanceETB - cost } : b))
       )
+    }
+
+    // 3. Update truck's last service date, mileage, and reset threshold
+    setTrucks((prev) =>
+      prev.map((t) => {
+        if (t.plateNumber === record.truckPlate) {
+          const currentKm = t.mileageKm || 0
+          const interval = record.serviceIntervalKm || t.serviceIntervalKm || 10000
+          const nextDue = record.nextServiceDueKm || (currentKm + interval)
+          return {
+            ...t,
+            lastServiceDate: record.date,
+            lastServiceKm: currentKm,
+            serviceIntervalKm: interval,
+            nextServiceDueKm: nextDue,
+            operationalStatus: 'Available' as const,
+          }
+        }
+        return t
+      })
     )
   }
 
@@ -833,12 +878,126 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const toggleReconcileMaintenance = (maintenanceId: string, statementRef?: string) => {
+    setMaintenance((prev) =>
+      prev.map((m) => {
+        if (m.id === maintenanceId) {
+          const newStatus = !m.isReconciled
+          const stmtRef = statementRef || m.reconciledStatementRef || 'CBE-STMT-OCT26-01'
+
+          // Also synchronize associated financial transaction
+          if (m.journalEntryId || m.disbursementRef) {
+            setTransactions((txs) =>
+              txs.map((tx) =>
+                tx.id === m.journalEntryId || tx.referenceNumber === m.disbursementRef
+                  ? { ...tx, status: newStatus ? 'Reconciled' : 'Pending Reconciliation' }
+                  : tx
+              )
+            )
+          }
+
+          return {
+            ...m,
+            isReconciled: newStatus,
+            reconciliationStatus: newStatus ? 'Reconciled' : 'Pending Statement Match',
+            reconciledDate: newStatus ? new Date().toISOString() : undefined,
+            reconciledStatementRef: newStatus ? stmtRef : undefined,
+          }
+        }
+        return m
+      })
+    )
+  }
+
   const addFleetPurchase = (purchase: Omit<FleetPurchase, 'id'>) => {
+    const purchaseId = `FP-2026-${String(fleetPurchases.length + 1).padStart(3, '0')}`
+    const totalCost = Number(purchase.totalCostETB || 0)
+    const bankId = purchase.paidFromAccountId || 'BANK-01'
+    const matchedBank = bankAccounts.find((b) => b.id === bankId) || bankAccounts[0]
+    const wireRef = purchase.disbursementRef || `CBE-FP-2026-${Date.now().toString().slice(-5)}`
+    const txId = `TXN-FP-${Date.now().toString().slice(-4)}`
+
     const newP: FleetPurchase = {
       ...purchase,
-      id: `FP-2026-${String(fleetPurchases.length + 1).padStart(3, '0')}`,
+      id: purchaseId,
+      paidFromAccountId: bankId,
+      paidFromAccountName: matchedBank.bankName,
+      disbursementRef: wireRef,
+      isReconciled: false,
+      reconciliationStatus: 'Pending Statement Match',
+      journalEntryId: txId,
     }
     setFleetPurchases((prev) => [newP, ...prev])
+
+    // 1. Post General Ledger Journal Transaction (Debit: Fleet Parts Expense / Credit: Bank Account)
+    if (totalCost > 0 && purchase.paymentStatus === 'Paid') {
+      const journalTx: FinancialTransaction = {
+        id: txId,
+        referenceNumber: wireRef,
+        date: purchase.date || new Date().toISOString().split('T')[0],
+        type: 'Expense',
+        category: 'Fleet Spare Parts & Tires',
+        fromAccount: matchedBank.bankName,
+        toAccount: purchase.supplierName,
+        amountETB: totalCost,
+        businessActivity: 'Transport',
+        status: 'Pending Reconciliation',
+        notes: `Fleet Parts: ${purchase.quantity}x ${purchase.itemDescription} (${purchase.category}) for ${purchase.truckPlate} from ${purchase.supplierName}. (Debit: Fleet Operating Expense / Credit: ${matchedBank.bankName})`,
+      }
+      setTransactions((prev) => [journalTx, ...prev])
+
+      // 2. Decrement Company Bank Account balance
+      setBankAccounts((prev) =>
+        prev.map((b) => (b.id === bankId ? { ...b, balanceETB: b.balanceETB - totalCost } : b))
+      )
+    }
+  }
+
+  const toggleReconcileFleetPurchase = (purchaseId: string, statementRef?: string) => {
+    setFleetPurchases((prev) =>
+      prev.map((p) => {
+        if (p.id === purchaseId) {
+          const newStatus = !p.isReconciled
+          const stmtRef = statementRef || p.reconciledStatementRef || 'CBE-STMT-OCT26-01'
+
+          // Also synchronize associated financial transaction
+          if (p.journalEntryId || p.disbursementRef) {
+            setTransactions((txs) =>
+              txs.map((tx) =>
+                tx.id === p.journalEntryId || tx.referenceNumber === p.disbursementRef
+                  ? { ...tx, status: newStatus ? 'Reconciled' : 'Pending Reconciliation' }
+                  : tx
+              )
+            )
+          }
+
+          return {
+            ...p,
+            isReconciled: newStatus,
+            reconciliationStatus: newStatus ? 'Reconciled' : 'Pending Statement Match',
+            reconciledDate: newStatus ? new Date().toISOString() : undefined,
+            reconciledStatementRef: newStatus ? stmtRef : undefined,
+          }
+        }
+        return p
+      })
+    )
+  }
+
+  const updateTruckServiceInterval = (plateNumber: string, intervalKm: number) => {
+    setTrucks((prev) =>
+      prev.map((t) => {
+        if (t.plateNumber === plateNumber) {
+          const lastKm = t.lastServiceKm || 0
+          return {
+            ...t,
+            serviceIntervalKm: intervalKm,
+            nextServiceDueKm: lastKm + intervalKm,
+          }
+        }
+        return t
+      })
+    )
   }
 
   const addFuelExpense = (expense: Omit<FuelExpense, 'id'>) => {
@@ -1476,8 +1635,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         maintenance,
         addMaintenance,
         updateMaintenance,
+        toggleReconcileMaintenance,
         fleetPurchases,
         addFleetPurchase,
+        toggleReconcileFleetPurchase,
+        updateTruckServiceInterval,
         fuelExpenses,
         addFuelExpense,
         // Master Products & Depots (Enterprise Configuration)
