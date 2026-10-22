@@ -1,28 +1,27 @@
 import React, { useState } from 'react'
-import { Plus, Filter, Truck, ShieldCheck, Wrench, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  SlidersHorizontal,
+  Filter,
+  Truck,
+  ShieldCheck,
+  Wrench,
+  ChevronRight,
+} from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { SearchBar } from '@/components/shared/SearchBar'
 import { useStore } from '@/data/storeContext'
 import { useToast } from '@/hooks/useToast'
 import { formatQuantity, formatDate } from '@/lib/formatters'
-import { Truck as TruckType, TruckStatus } from '@/types'
+import { TruckStatus } from '@/types'
 
 export const TrucksPage: React.FC = () => {
-  const { trucks, addTruck, updateTruckStatus, drivers } = useStore()
+  const { trucks, updateTruckStatus } = useStore()
   const { toast } = useToast()
 
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
-  const [isModalOpen, setIsModalOpen] = useState(false)
-
-  // Form
-  const [plateNumber, setPlateNumber] = useState('')
-  const [makeModel, setMakeModel] = useState('Sinotruk HOWO 371 6x4')
-  const [modelYear, setModelYear] = useState<number>(2023)
-  const [capacityQuintals, setCapacityQuintals] = useState<number>(750)
-  const [driverName, setDriverName] = useState(drivers[0]?.fullName || '')
-  const [mileageKm, setMileageKm] = useState<number>(45000)
 
   const filtered = trucks.filter((t) => {
     const matchSearch =
@@ -33,46 +32,11 @@ export const TrucksPage: React.FC = () => {
     return matchSearch && matchStatus
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!plateNumber) {
-      toast({
-        title: 'Validation Error',
-        description: 'Commercial plate number is required.',
-        type: 'error',
-      })
-      return
-    }
-
-    const matchedDriver = drivers.find((d) => d.fullName === driverName)
-
-    addTruck({
-      plateNumber,
-      makeModel,
-      modelYear: Number(modelYear),
-      capacityQuintals: Number(capacityQuintals),
-      driverId: matchedDriver?.id || 'DRV-001',
-      driverName,
-      operationalStatus: 'Available',
-      mileageKm: Number(mileageKm),
-      lastServiceDate: new Date().toISOString().split('T')[0],
-    })
-
-    toast({
-      title: 'Truck Registered',
-      description: `Truck ${plateNumber} enrolled into Zarima commercial haulage fleet.`,
-      type: 'success',
-    })
-
-    setIsModalOpen(false)
-    setPlateNumber('')
-  }
-
   const handleStatusChange = (truckId: string, newStatus: TruckStatus) => {
     updateTruckStatus(truckId, newStatus)
     toast({
       title: 'Status Updated',
-      description: `Truck status changed to ${newStatus}.`,
+      description: `Truck operational status changed to ${newStatus}.`,
       type: 'info',
     })
   }
@@ -87,13 +51,13 @@ export const TrucksPage: React.FC = () => {
           { label: 'Truck Fleet' },
         ]}
         actions={
-          <button
-            onClick={() => setIsModalOpen(true)}
+          <Link
+            to="/configuration?tab=trucks"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Register Truck</span>
-          </button>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Configure Trucks in Master Data</span>
+          </Link>
         }
       />
 
@@ -148,183 +112,80 @@ export const TrucksPage: React.FC = () => {
                 <StatusBadge status={t.operationalStatus} size="sm" />
               </div>
 
-              <div className="my-3 p-3 rounded-lg bg-surface-elevated/70 border border-border/80 text-xs space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Payload Capacity:</span>
-                  <span className="font-bold text-foreground font-mono">
-                    {formatQuantity(t.capacityQuintals, 'Qtl')} ({(t.capacityQuintals / 10).toFixed(0)} MT)
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Odometer:</span>
-                  <span className="font-mono">{t.mileageKm.toLocaleString()} km</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Paired Driver:</span>
+              <div className="space-y-2 py-3 border-y border-border/60 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Assigned Driver:</span>
                   <span className="font-semibold text-foreground">{t.driverName}</span>
                 </div>
-                <div className="flex justify-between items-center pt-1 border-t border-border/50">
-                  <span className="text-muted-foreground">Last Serviced:</span>
-                  <span className="font-mono text-[11px] text-foreground font-medium">
-                    {t.lastServiceDate || '2026-02-15'}
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Payload Capacity:</span>
+                  <span className="font-semibold text-foreground font-mono">
+                    {formatQuantity(t.capacityQuintals)}
                   </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Odometer:</span>
+                  <span className="font-semibold text-foreground font-mono">
+                    {t.mileageKm?.toLocaleString() || 0} km
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Service Interval:</span>
+                  <span className="font-semibold text-foreground font-mono">
+                    {(t.serviceIntervalKm || 10000).toLocaleString()} km
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Last Service Date:</span>
+                  <span className="text-foreground">{formatDate(t.lastServiceDate)}</span>
                 </div>
               </div>
             </div>
 
-            {/* Quick Status Toggles */}
-            <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
-              <span className="text-[11px] text-muted-foreground">Quick Status:</span>
-              <div className="flex items-center gap-1.5">
-                {t.operationalStatus !== 'Available' && (
-                  <button
-                    onClick={() => handleStatusChange(t.id, 'Available')}
-                    className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold hover:bg-emerald-500/20"
-                  >
-                    Set Available
-                  </button>
-                )}
-                {t.operationalStatus !== 'Active Trip' && (
-                  <button
-                    onClick={() => handleStatusChange(t.id, 'Active Trip')}
-                    className="px-2 py-1 rounded bg-forest/10 text-forest dark:text-forest-vibrant text-[10px] font-semibold hover:bg-forest/20"
-                  >
-                    Set Active
-                  </button>
-                )}
-                {t.operationalStatus !== 'In Maintenance' && (
-                  <button
-                    onClick={() => handleStatusChange(t.id, 'In Maintenance')}
-                    className="px-2 py-1 rounded bg-rose-500/10 text-rose-600 text-[10px] font-semibold hover:bg-rose-500/20"
-                  >
-                    Workshop
-                  </button>
-                )}
+            <div className="pt-3.5 mt-3 border-t border-border flex flex-col gap-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[11px] text-muted-foreground">Operational Status:</span>
+                <div className="flex items-center gap-1.5">
+                  {t.operationalStatus !== 'Available' && (
+                    <button
+                      onClick={() => handleStatusChange(t.id, 'Available')}
+                      className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold hover:bg-emerald-500/20"
+                    >
+                      Set Available
+                    </button>
+                  )}
+                  {t.operationalStatus !== 'Active Trip' && (
+                    <button
+                      onClick={() => handleStatusChange(t.id, 'Active Trip')}
+                      className="px-2 py-1 rounded bg-forest/10 text-forest dark:text-forest-vibrant text-[10px] font-semibold hover:bg-forest/20"
+                    >
+                      Set Active
+                    </button>
+                  )}
+                  {t.operationalStatus !== 'In Maintenance' && (
+                    <button
+                      onClick={() => handleStatusChange(t.id, 'In Maintenance')}
+                      className="px-2 py-1 rounded bg-rose-500/10 text-rose-600 text-[10px] font-semibold hover:bg-rose-500/20"
+                    >
+                      Workshop
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-1">
+                <Link
+                  to="/configuration?tab=trucks"
+                  className="text-xs text-muted-foreground hover:text-forest font-semibold flex items-center gap-1 transition-colors"
+                >
+                  <span>Edit in Master Data</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Modal: Register Commercial Truck */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md rounded-2xl bg-surface border border-border p-6 shadow-dropdown animate-in zoom-in-95 duration-150">
-            <h3 className="text-lg font-bold text-foreground mb-1">
-              Register Commercial Hauler
-            </h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Add a heavy truck or tractor-trailer unit to Zarima's logistics fleet.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Commercial Plate Number (Ethiopian)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={plateNumber}
-                  onChange={(e) => setPlateNumber(e.target.value)}
-                  className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono font-bold focus:ring-1 focus:ring-forest"
-                  placeholder="e.g. 3-ET-G99120 AA"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Make &amp; Model
-                  </label>
-                  <select
-                    value={makeModel}
-                    onChange={(e) => setMakeModel(e.target.value)}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                  >
-                    <option value="Sinotruk HOWO 371 6x4">Sinotruk HOWO 371 6x4</option>
-                    <option value="Sinotruk HOWO 380 Bulk Tanker">Sinotruk HOWO 380 Tanker</option>
-                    <option value="Mercedes-Benz Actros 3340">Mercedes Actros 3340</option>
-                    <option value="Volvo FH440 Heavy Hauler">Volvo FH440 Hauler</option>
-                    <option value="Isuzu FSR Forward 33">Isuzu FSR Forward 33</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Model Year
-                  </label>
-                  <input
-                    type="number"
-                    value={modelYear}
-                    onChange={(e) => setModelYear(Number(e.target.value))}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Capacity (Quintals)
-                  </label>
-                  <input
-                    type="number"
-                    value={capacityQuintals}
-                    onChange={(e) => setCapacityQuintals(Number(e.target.value))}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Current Odometer (km)
-                  </label>
-                  <input
-                    type="number"
-                    value={mileageKm}
-                    onChange={(e) => setMileageKm(Number(e.target.value))}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Assign Heavy Driver
-                </label>
-                <select
-                  value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
-                  className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                >
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.fullName}>
-                      {d.fullName} ({d.licenseGrade})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-border hover:bg-surface-elevated text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-full bg-[#FF6B00] hover:bg-[#EA580C] text-white font-extrabold shadow-md shadow-[#FF6B00]/30 hover:scale-105 active:scale-95 transition-all text-xs"
-                >
-                  Save Truck
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

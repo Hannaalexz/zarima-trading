@@ -114,6 +114,7 @@ export interface Truck {
   warningLeadKm?: number // e.g. 1500 km notification lead
   engineOilGrade?: string // e.g. '15W-40 CI-4 Heavy Duty'
   preferredWorkshop?: string // e.g. 'TotalEnergies Truck Center Akaki'
+  designatedWorkshop?: string
 }
 
 export type DeliveryOperationalStatus = 'Pending' | 'Assigned' | 'In Transit' | 'Delivered' | 'Cancelled'

@@ -144,6 +144,10 @@ export const ConfigurationPage: React.FC = () => {
   const [truckOwnership, setTruckOwnership] = useState<'Zarima Owned' | 'Subcontracted / Partner'>('Zarima Owned')
   const [truckFuelCapacity, setTruckFuelCapacity] = useState<number>(400)
   const [truckStatus, setTruckStatus] = useState<TruckStatus>('Available')
+  const [truckServiceInterval, setTruckServiceInterval] = useState<number>(10000)
+  const [truckWarningLead, setTruckWarningLead] = useState<number>(1500)
+  const [truckOilGrade, setTruckOilGrade] = useState('15W-40 CI-4 Heavy Duty')
+  const [truckWorkshop, setTruckWorkshop] = useState('TotalEnergies Truck Center Akaki')
 
   // =========================================================================
   // FORM STATES: STAFF & DRIVERS
@@ -220,6 +224,12 @@ export const ConfigurationPage: React.FC = () => {
 
     const matchedDriver = drivers.find((d) => d.fullName === truckDriverName)
 
+    const intervalVal = Number(truckServiceInterval) || 10000
+    const warningLeadVal = Number(truckWarningLead) || 1500
+    const oilGradeVal = truckOilGrade.trim() || '15W-40 CI-4 Heavy Duty'
+    const workshopVal = truckWorkshop.trim() || 'TotalEnergies Truck Center Akaki'
+    const mileageVal = Number(truckMileage) || 0
+
     if (editingTruckId) {
       updateTruck(editingTruckId, {
         plateNumber: truckPlate.trim(),
@@ -228,12 +238,18 @@ export const ConfigurationPage: React.FC = () => {
         capacityQuintals: Number(truckCapacity),
         driverId: matchedDriver?.id || 'DRV-001',
         driverName: truckDriverName,
-        mileageKm: Number(truckMileage),
+        mileageKm: mileageVal,
         operationalStatus: truckStatus,
         ownershipType: truckOwnership,
         fuelCapacityLiters: Number(truckFuelCapacity),
+        serviceIntervalKm: intervalVal,
+        warningLeadKm: warningLeadVal,
+        engineOilGrade: oilGradeVal,
+        designatedWorkshop: workshopVal,
+        preferredWorkshop: workshopVal,
+        nextServiceDueKm: mileageVal + intervalVal,
       })
-      toast({ title: 'Truck Updated', description: `Truck ${truckPlate} updated successfully.`, type: 'success' })
+      toast({ title: 'Truck Updated', description: `Truck ${truckPlate} updated successfully with ${intervalVal.toLocaleString()} km maintenance cycle.`, type: 'success' })
     } else {
       addTruck({
         plateNumber: truckPlate.trim(),
@@ -243,12 +259,19 @@ export const ConfigurationPage: React.FC = () => {
         driverId: matchedDriver?.id || 'DRV-001',
         driverName: truckDriverName,
         operationalStatus: truckStatus,
-        mileageKm: Number(truckMileage),
+        mileageKm: mileageVal,
         lastServiceDate: new Date().toISOString().split('T')[0],
+        lastServiceKm: mileageVal,
         ownershipType: truckOwnership,
         fuelCapacityLiters: Number(truckFuelCapacity),
+        serviceIntervalKm: intervalVal,
+        warningLeadKm: warningLeadVal,
+        engineOilGrade: oilGradeVal,
+        designatedWorkshop: workshopVal,
+        preferredWorkshop: workshopVal,
+        nextServiceDueKm: mileageVal + intervalVal,
       })
-      toast({ title: 'Truck Registered', description: `Truck ${truckPlate} added to fleet master data.`, type: 'success' })
+      toast({ title: 'Truck Registered', description: `Truck ${truckPlate} added to fleet master data with ${intervalVal.toLocaleString()} km maintenance cycle.`, type: 'success' })
     }
 
     setIsTruckModalOpen(false)
@@ -684,6 +707,10 @@ export const ConfigurationPage: React.FC = () => {
                 setTruckCapacity(750)
                 setTruckMileage(45000)
                 setTruckOwnership('Zarima Owned')
+                setTruckServiceInterval(10000)
+                setTruckWarningLead(1500)
+                setTruckOilGrade('15W-40 CI-4 Heavy Duty')
+                setTruckWorkshop('TotalEnergies Truck Center Akaki')
                 setIsTruckModalOpen(true)
               }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all whitespace-nowrap"
@@ -884,8 +911,11 @@ export const ConfigurationPage: React.FC = () => {
                           <span>{truck.driverName}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 font-mono text-muted-foreground">
-                        {truck.mileageKm?.toLocaleString()} km
+                      <td className="py-3 px-4 font-mono">
+                        <div className="font-bold text-foreground">{truck.mileageKm?.toLocaleString()} km</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          {truck.serviceIntervalKm ? `${truck.serviceIntervalKm.toLocaleString()} km cycle` : '10,000 km cycle'}
+                        </div>
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={truck.operationalStatus} />
@@ -904,6 +934,10 @@ export const ConfigurationPage: React.FC = () => {
                               setTruckOwnership(truck.ownershipType || 'Zarima Owned')
                               setTruckFuelCapacity(truck.fuelCapacityLiters || 400)
                               setTruckStatus(truck.operationalStatus)
+                              setTruckServiceInterval(truck.serviceIntervalKm || 10000)
+                              setTruckWarningLead(truck.warningLeadKm || 1500)
+                              setTruckOilGrade(truck.engineOilGrade || '15W-40 CI-4 Heavy Duty')
+                              setTruckWorkshop(truck.designatedWorkshop || truck.preferredWorkshop || 'TotalEnergies Truck Center Akaki')
                               setIsTruckModalOpen(true)
                             }}
                             className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
@@ -1766,6 +1800,89 @@ export const ConfigurationPage: React.FC = () => {
                     <option value="In Maintenance">In Workshop Maintenance</option>
                     <option value="Idle">Idle / Standby</option>
                   </select>
+                </div>
+              </div>
+
+              {/* PREVENTIVE SERVICE INTERVAL & MAINTENANCE RULES */}
+              <div className="p-3.5 rounded-xl bg-surface-elevated/70 border border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-forest" />
+                    <span className="font-bold text-foreground text-xs">Preventive Maintenance &amp; Oil Cycle</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground">Default: 10,000 km</span>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-foreground mb-1">Service Interval (km) *</label>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="500"
+                    required
+                    value={truckServiceInterval}
+                    onChange={(e) => setTruckServiceInterval(Number(e.target.value))}
+                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono font-bold text-xs"
+                  />
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setTruckServiceInterval(10000)}
+                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-forest/15 text-forest hover:bg-forest/25"
+                    >
+                      10,000 km Standard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTruckServiceInterval(8000)}
+                      className="px-2 py-0.5 rounded text-[10px] bg-surface-elevated border border-border text-foreground hover:bg-surface"
+                    >
+                      8,000 km Heavy Duty
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTruckServiceInterval(15000)}
+                      className="px-2 py-0.5 rounded text-[10px] bg-surface-elevated border border-border text-foreground hover:bg-surface"
+                    >
+                      15,000 km Highway
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-foreground mb-1 text-[11px]">Warning Lead (km)</label>
+                    <input
+                      type="number"
+                      min="100"
+                      step="100"
+                      value={truckWarningLead}
+                      onChange={(e) => setTruckWarningLead(Number(e.target.value))}
+                      className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono text-xs"
+                      placeholder="1500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-foreground mb-1 text-[11px]">Recommended Oil Grade</label>
+                    <input
+                      type="text"
+                      value={truckOilGrade}
+                      onChange={(e) => setTruckOilGrade(e.target.value)}
+                      className="w-full p-2 bg-surface border border-border rounded-lg text-foreground text-xs"
+                      placeholder="e.g. 15W-40 CI-4"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-foreground mb-1 text-[11px]">Designated Workshop Facility</label>
+                  <input
+                    type="text"
+                    value={truckWorkshop}
+                    onChange={(e) => setTruckWorkshop(e.target.value)}
+                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground text-xs"
+                    placeholder="e.g. TotalEnergies Truck Center Akaki"
+                  />
                 </div>
               </div>
 

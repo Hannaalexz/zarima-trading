@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Plus,
   Wrench,
@@ -51,7 +52,7 @@ export const MaintenancePage: React.FC = () => {
   } = useStore()
   const { toast } = useToast()
 
-  const [activeTab, setActiveTab] = useState<'maintenance' | 'purchases' | 'journal' | 'intervals'>('maintenance')
+  const [activeTab, setActiveTab] = useState<'maintenance' | 'purchases' | 'journal'>('maintenance')
   const [searchTerm, setSearchTerm] = useState('')
 
   // Journal Division Filter (Separate for Cement and Trucks)
@@ -86,83 +87,18 @@ export const MaintenancePage: React.FC = () => {
   const [receiptNo, setReceiptNo] = useState('')
   const [purchaseNotes, setPurchaseNotes] = useState('')
 
-  // Service Interval & Truck Configuration Modal State
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
-  const [configTruckPlate, setConfigTruckPlate] = useState<string>(trucks[0]?.plateNumber || '')
-  const [configCurrentKm, setConfigCurrentKm] = useState<number>(trucks[0]?.mileageKm || 142800)
-  const [configIntervalKm, setConfigIntervalKm] = useState<number>(trucks[0]?.serviceIntervalKm || 10000)
-  const [configWarningLeadKm, setConfigWarningLeadKm] = useState<number>(1500)
-  const [configOilGrade, setConfigOilGrade] = useState<string>('15W-40 CI-4 Heavy Duty Commercial')
-  const [configWorkshop, setConfigWorkshop] = useState<string>('TotalEnergies Truck Center Akaki')
-
-  // Manual Reconciliation Modal State (for journal entries that didn't auto reconcile)
+  // Manual Reconciliation Modal State
   const [isManualReconcileModalOpen, setIsManualReconcileModalOpen] = useState(false)
   const [selectedTxToReconcile, setSelectedTxToReconcile] = useState<any>(null)
-  const [manualStatementRef, setManualStatementRef] = useState('CBE-STMT-OCT26-01')
+  const [manualStatementRef, setManualStatementRef] = useState('')
   const [manualReconcileNotes, setManualReconcileNotes] = useState('')
 
-  // Calculate Service Due Trucks
-  const serviceDueTrucks = trucks.filter((t) => {
-    const isKmDue = t.nextServiceDueKm ? t.mileageKm >= t.nextServiceDueKm : false
-    const isDateDue = t.nextServiceDueDate ? new Date(t.nextServiceDueDate) <= new Date() : false
-    return isKmDue || isDateDue
+  // Service Due Trucks Computation
+  const serviceDueTrucks = trucks.filter((truck) => {
+    const currentKm = truck.mileageKm || 0
+    const nextKm = truck.nextServiceDueKm || (truck.serviceIntervalKm || 10000)
+    return currentKm >= nextKm
   })
-
-  // Open Configuration Modal for a truck
-  const handleOpenTruckConfig = (plate: string) => {
-    const target = trucks.find((t) => t.plateNumber === plate) || trucks[0]
-    setConfigTruckPlate(target.plateNumber)
-    setConfigCurrentKm(target.mileageKm)
-    setConfigIntervalKm(target.serviceIntervalKm || 10000)
-    setConfigWarningLeadKm(target.warningLeadKm || 1500)
-    setConfigOilGrade(target.engineOilGrade || '15W-40 CI-4 Heavy Duty Commercial')
-    setConfigWorkshop(target.preferredWorkshop || 'TotalEnergies Truck Center Akaki')
-    setIsConfigModalOpen(true)
-  }
-
-  // Handle changing truck inside Configuration Modal
-  const handleConfigTruckSelect = (plate: string) => {
-    setConfigTruckPlate(plate)
-    const target = trucks.find((t) => t.plateNumber === plate)
-    if (target) {
-      setConfigCurrentKm(target.mileageKm)
-      setConfigIntervalKm(target.serviceIntervalKm || 10000)
-      setConfigWarningLeadKm(target.warningLeadKm || 1500)
-      if (target.engineOilGrade) setConfigOilGrade(target.engineOilGrade)
-      if (target.preferredWorkshop) setConfigWorkshop(target.preferredWorkshop)
-    }
-  }
-
-  // Save Configuration Modal
-  const handleSaveTruckConfig = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!configTruckPlate || configIntervalKm <= 0 || configCurrentKm < 0) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please specify a valid truck, current odometer reading, and interval.',
-        type: 'error',
-      })
-      return
-    }
-
-    updateTruckConfig(configTruckPlate, {
-      mileageKm: Number(configCurrentKm),
-      serviceIntervalKm: Number(configIntervalKm),
-      warningLeadKm: Number(configWarningLeadKm),
-      engineOilGrade: configOilGrade,
-      preferredWorkshop: configWorkshop,
-    })
-
-    toast({
-      title: 'Truck Configuration Updated',
-      description: `Saved: ${configTruckPlate} odometer updated to ${configCurrentKm.toLocaleString()} km. Service interval set to every ${configIntervalKm.toLocaleString()} km.`,
-      type: 'success',
-    })
-
-    setIsConfigModalOpen(false)
-  }
-
-  // Pre-fill modal for a specific truck when logging oil change
   const handleQuickLogOilChange = (plate: string) => {
     const target = trucks.find((t) => t.plateNumber === plate)
     const currentKm = target?.mileageKm || 0
@@ -419,13 +355,13 @@ export const MaintenancePage: React.FC = () => {
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => handleOpenTruckConfig(trucks[0]?.plateNumber || '')}
+            <Link
+              to="/configuration?tab=trucks"
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-purple-500/40 hover:bg-purple-500/10 text-foreground transition-all shadow-xs"
             >
               <Sliders className="w-3.5 h-3.5 text-purple-600" />
-              <span>Configure Intervals</span>
-            </button>
+              <span>Master Configuration</span>
+            </Link>
             <button
               onClick={() => setIsPurchaseModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-[#FF6B00]/40 hover:bg-[#FF6B00]/10 text-foreground transition-all shadow-xs"
@@ -466,6 +402,13 @@ export const MaintenancePage: React.FC = () => {
               )}
             </div>
           </div>
+          <Link
+            to="/configuration?tab=trucks"
+            className="text-xs text-muted-foreground hover:text-forest transition-colors font-medium flex items-center gap-1"
+          >
+            <span>Configure in Master Data</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
 
         {/* TRUCK INTERVAL LIVE MONITOR CARDS */}
@@ -546,10 +489,10 @@ export const MaintenancePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center gap-2">
+                <div className="mt-3 pt-2.5 border-t border-border/60">
                   <button
                     onClick={() => handleQuickLogOilChange(truck.plateNumber)}
-                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                    className={`w-full py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                       isOverdue
                         ? 'bg-[#FF6B00] hover:bg-[#e05e00] text-white shadow-xs'
                         : 'bg-forest/15 hover:bg-forest hover:text-white text-forest'
@@ -557,13 +500,6 @@ export const MaintenancePage: React.FC = () => {
                   >
                     <Wrench className="w-3.5 h-3.5" />
                     <span>Log Service</span>
-                  </button>
-                  <button
-                    onClick={() => handleOpenTruckConfig(truck.plateNumber)}
-                    className="p-1.5 rounded-lg bg-surface border border-border hover:bg-surface-elevated text-muted-foreground hover:text-foreground"
-                    title="Configure Truck & Update Odometer"
-                  >
-                    <Sliders className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -694,18 +630,6 @@ export const MaintenancePage: React.FC = () => {
             >
               {activeJournalEntries.length}
             </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('intervals')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-              activeTab === 'intervals'
-                ? 'bg-purple-600 text-white shadow-subtle'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Configuration &amp; Odometers</span>
           </button>
         </div>
 
@@ -1211,265 +1135,7 @@ export const MaintenancePage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: TRUCK CONFIGURATION & ODOMETERS */}
-      {activeTab === 'intervals' && (
-        <div className="rounded-2xl border border-border bg-surface/90 backdrop-blur-md shadow-card p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
-            <div>
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-purple-600" />
-                <span>Vehicle Configuration &amp; Odometers</span>
-              </h3>
-            </div>
-            <button
-              onClick={() => handleOpenTruckConfig(trucks[0]?.plateNumber || '')}
-              className="px-3.5 py-2 rounded-lg bg-forest hover:bg-forest-dark text-white text-xs font-semibold flex items-center gap-1.5 shadow-subtle shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Configure Vehicle</span>
-            </button>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {trucks.map((truck) => {
-              const currentKm = truck.mileageKm || 0
-              const interval = truck.serviceIntervalKm || 10000
-              const lastKm = truck.lastServiceKm || 0
-              const nextKm = truck.nextServiceDueKm || (lastKm + interval)
-
-              return (
-                <div key={truck.id} className="p-4 rounded-xl border border-border/80 bg-surface-elevated/40 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-sm text-foreground">{truck.plateNumber}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-forest/15 text-forest">
-                        {interval.toLocaleString()} km Interval
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">{truck.makeModel}</div>
-
-                    <div className="mt-4 space-y-2 text-xs font-mono">
-                      <div className="flex justify-between p-1.5 rounded bg-surface border border-border/60">
-                        <span className="text-muted-foreground">Current Odometer:</span>
-                        <span className="font-bold text-foreground">{currentKm.toLocaleString()} km</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Last Serviced:</span>
-                        <span className="text-muted-foreground">{lastKm.toLocaleString()} km</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Next Scheduled Due:</span>
-                        <span className="font-bold text-forest">{nextKm.toLocaleString()} km</span>
-                      </div>
-                      <div className="flex justify-between pt-1 border-t border-border/60 text-[11px] font-sans">
-                        <span className="text-muted-foreground">Recommended Oil:</span>
-                        <span className="text-foreground truncate max-w-[150px]">
-                          {truck.engineOilGrade || '15W-40 CI-4 Heavy Duty'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleOpenTruckConfig(truck.plateNumber)}
-                    className="mt-4 w-full py-1.5 px-3 rounded-lg border border-purple-500/40 hover:bg-purple-500/10 hover:border-purple-500 text-xs font-semibold text-foreground transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <Sliders className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Update Odometer &amp; Interval</span>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 1: CONFIGURE TRUCK ODOMETER & SERVICE INTERVAL (10K RULE + OTHER CONFIGURABLES) */}
-      {isConfigModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-lg rounded-2xl bg-surface border border-border p-6 shadow-dropdown animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-border">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center">
-                  <Sliders className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground">Configure Truck Settings</h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Update current odometer reading and service intervals.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsConfigModalOpen(false)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveTruckConfig} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Select Commercial Truck Plate <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={configTruckPlate}
-                  onChange={(e) => handleConfigTruckSelect(e.target.value)}
-                  className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono"
-                >
-                  {trucks.map((t) => (
-                    <option key={t.id} value={t.plateNumber}>
-                      {t.plateNumber} — {t.makeModel} (Current: {t.mileageKm.toLocaleString()} km)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* CURRENT ODOMETER READING */}
-              <div className="p-3 rounded-xl bg-surface-elevated/70 border border-border space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block font-bold text-foreground">
-                    Current Odometer (km) <span className="text-red-500">*</span>
-                  </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={configCurrentKm}
-                    onChange={(e) => setConfigCurrentKm(Number(e.target.value))}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono font-bold text-sm"
-                  />
-                  <span className="font-mono font-bold text-muted-foreground text-xs shrink-0">KM</span>
-                </div>
-              </div>
-
-              {/* SERVICE INTERVAL CONFIGURATION */}
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Preventive Service Interval (km) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1000"
-                  step="500"
-                  required
-                  value={configIntervalKm}
-                  onChange={(e) => setConfigIntervalKm(Number(e.target.value))}
-                  className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono font-bold"
-                />
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setConfigIntervalKm(10000)}
-                    className="px-2.5 py-1 rounded-md bg-forest/15 text-forest font-mono text-[11px] font-bold hover:bg-forest/25"
-                  >
-                    10,000 km (Standard Heavy Rig)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfigIntervalKm(8000)}
-                    className="px-2.5 py-1 rounded-md bg-surface-elevated border border-border text-foreground font-mono text-[11px] hover:bg-surface"
-                  >
-                    8,000 km (Severe Duty / Quarry)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfigIntervalKm(15000)}
-                    className="px-2.5 py-1 rounded-md bg-surface-elevated border border-border text-foreground font-mono text-[11px] hover:bg-surface"
-                  >
-                    15,000 km (Expressway Linehaul)
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Notification Lead Warning (km)
-                  </label>
-                  <input
-                    type="number"
-                    min="100"
-                    step="100"
-                    value={configWarningLeadKm}
-                    onChange={(e) => setConfigWarningLeadKm(Number(e.target.value))}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono"
-                    placeholder="1500"
-                  />
-                  <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                    Alert amber when within lead km
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Primary Engine Oil Grade
-                  </label>
-                  <input
-                    type="text"
-                    value={configOilGrade}
-                    onChange={(e) => setConfigOilGrade(e.target.value)}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                    placeholder="e.g. 15W-40 CI-4"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Designated Workshop Facility
-                </label>
-                <input
-                  type="text"
-                  value={configWorkshop}
-                  onChange={(e) => setConfigWorkshop(e.target.value)}
-                  className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                  placeholder="e.g. TotalEnergies Truck Center Akaki"
-                />
-              </div>
-
-              {/* Calculation Preview */}
-              <div className="p-3 rounded-xl bg-surface-elevated/70 border border-border text-[11px] text-muted-foreground space-y-1">
-                <div>
-                  <strong>Calculated Threshold:</strong> Next service will trigger at{' '}
-                  <span className="font-mono text-foreground font-bold text-forest">
-                    {(Number(configCurrentKm) + Number(configIntervalKm)).toLocaleString()} km
-                  </span>
-                  .
-                </div>
-                <div>
-                  <strong>Warning Alert:</strong> Starts notifying when truck odometer hits{' '}
-                  <span className="font-mono text-foreground font-bold">
-                    {(Number(configCurrentKm) + Number(configIntervalKm) - Number(configWarningLeadKm)).toLocaleString()} km
-                  </span>
-                  .
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsConfigModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-border hover:bg-surface-elevated text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-forest hover:bg-forest-dark text-white font-semibold shadow-subtle flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Save Configuration &amp; Odometer</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL 2: LOG MAINTENANCE SERVICE (PRE-FILLED ODOMETER & GL POSTING) */}
       {isServiceModalOpen && (

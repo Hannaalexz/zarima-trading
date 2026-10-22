@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  Plus,
   Users,
   Phone,
   Building2,
@@ -12,6 +12,8 @@ import {
   FileBarChart,
   Boxes,
   TrendingUp,
+  SlidersHorizontal,
+  ChevronRight,
   Download,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -22,23 +24,12 @@ import { useToast } from '@/hooks/useToast'
 import { formatCurrency, formatQuantity, formatDate } from '@/lib/formatters'
 
 export const CustomersPage: React.FC = () => {
-  const { customers, addCustomer, sales } = useStore()
+  const { customers, sales } = useStore()
   const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<'directory' | 'report'>('directory')
   const [searchTerm, setSearchTerm] = useState('')
   const [customerFilter, setCustomerFilter] = useState<'ALL' | 'Usual' | 'New'>('ALL')
-  const [isModalOpen, setIsModalOpen] = useState(false)
-
-  // Form states
-  const [name, setName] = useState('')
-  const [company, setCompany] = useState('')
-  const [tinNumber, setTinNumber] = useState('')
-  const [phone, setPhone] = useState('')
-  const [city, setCity] = useState('Addis Ababa')
-  const [creditLimitETB, setCreditLimitETB] = useState<number>(5000000)
-  const [paymentTerms, setPaymentTerms] = useState('Immediate Cash / Bank Transfer')
-  const [isUsual, setIsUsual] = useState<boolean>(true)
 
   // Directory filter
   const filtered = customers.filter((c) => {
@@ -101,45 +92,6 @@ export const CustomersPage: React.FC = () => {
   const totalReportRevenue = customerPurchaseReport.reduce((acc, r) => acc + r.totalETB, 0)
   const totalReportQuintals = customerPurchaseReport.reduce((acc, r) => acc + r.totalQuintals, 0)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!company || !name) {
-      toast({
-        title: 'Validation Error',
-        description: 'Customer company name and contact person are required.',
-        type: 'error',
-      })
-      return
-    }
-
-    addCustomer({
-      name,
-      company,
-      tinNumber: tinNumber || `00${Math.floor(10000000 + Math.random() * 90000000)}`,
-      phone: phone || '+251 91 100 0000',
-      city,
-      creditLimitETB: Number(creditLimitETB),
-      outstandingBalanceETB: 0,
-      paymentTerms,
-      status: 'Active',
-      isUsual,
-      customerCategory: isUsual ? 'Usual Customer' : 'New Customer',
-    })
-
-    toast({
-      title: 'Customer Registered',
-      description: `${company} registered. They will now appear in invoice dropdowns for fast selection.`,
-      type: 'success',
-    })
-
-    setIsModalOpen(false)
-    setName('')
-    setCompany('')
-    setTinNumber('')
-    setPhone('')
-    setIsUsual(true)
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -150,15 +102,13 @@ export const CustomersPage: React.FC = () => {
           { label: 'Customers' },
         ]}
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Register Customer</span>
-            </button>
-          </div>
+          <Link
+            to="/configuration?tab=partners"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Configure in Master Data</span>
+          </Link>
         }
       />
 
@@ -303,6 +253,16 @@ export const CustomersPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  <div className="pt-3 mt-3 border-t border-border flex items-center justify-end">
+                    <Link
+                      to="/configuration?tab=partners"
+                      className="text-xs text-muted-foreground hover:text-forest font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <span>Edit in Master Data</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </div>
               )
             })}
@@ -421,123 +381,6 @@ export const CustomersPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Register Customer */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md rounded-2xl bg-surface border border-border p-6 shadow-dropdown animate-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
-            <h3 className="text-base font-bold text-foreground mb-1">
-              Register Regular Customer
-            </h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Save frequent buyers so they appear automatically in sales invoice dropdowns. No contracts required.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Customer / Company Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  className="w-full p-2 bg-surface border border-border rounded-lg text-foreground focus:ring-1 focus:ring-forest"
-                  placeholder="e.g. Sunshine Construction or Ato Bekele"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Contact Person *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                    placeholder="e.g. Ato Daniel Assefa"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    City / Site Location
-                  </label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Ethiopian TIN (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={tinNumber}
-                    onChange={(e) => setTinNumber(e.target.value)}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground font-mono"
-                    placeholder="0012948190"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-foreground mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                    placeholder="+251 91 123 4567"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Payment Preference
-                </label>
-                <select
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                >
-                  <option value="Immediate Cash / Bank Transfer">Immediate Cash / Bank Transfer</option>
-                  <option value="Net 30 Days">Net 30 Days</option>
-                  <option value="Cash on Delivery">Cash on Delivery</option>
-                </select>
-              </div>
-
-              <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-border hover:bg-surface-elevated text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-full bg-forest hover:bg-forest-dark text-white font-extrabold shadow-subtle dark:shadow-glow hover:scale-105 active:scale-95 transition-all text-xs"
-                >
-                  Save Regular Customer
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
