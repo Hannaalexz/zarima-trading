@@ -13,6 +13,7 @@ import { TrucksPage } from '@/features/fleet/TrucksPage'
 import { DeliveriesPage } from '@/features/fleet/DeliveriesPage'
 import { DriversPage } from '@/features/fleet/DriversPage'
 import { MaintenancePage } from '@/features/fleet/MaintenancePage'
+import { ServicePage } from '@/features/fleet/ServicePage'
 import { FuelExpensesPage } from '@/features/fleet/FuelExpensesPage'
 import { FinanceDashboard } from '@/features/finance/FinanceDashboard'
 import { BankAccountsPage } from '@/features/finance/BankAccountsPage'
@@ -90,6 +91,10 @@ export const router = createBrowserRouter([
       {
         path: 'fleet/drivers',
         element: <DriversPage />,
+      },
+      {
+        path: 'fleet/service',
+        element: <ServicePage />,
       },
       {
         path: 'fleet/maintenance',

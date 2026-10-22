@@ -25,6 +25,7 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
+  Gauge,
 } from 'lucide-react'
 import { BrandLogo } from '../shared/BrandLogo'
 import { useAuth } from '@/data/authContext'
@@ -83,7 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { label: '42 Haulage Trucks', href: '/fleet/trucks', icon: Truck },
         { label: 'Active Deliveries', href: '/fleet/deliveries', icon: PackageCheck },
         { label: 'Heavy Drivers', href: '/fleet/drivers', icon: UserCheck },
-        { label: 'Maintenance Log', href: '/fleet/maintenance', icon: Wrench },
+        { label: 'Scheduled Service (10k)', href: '/fleet/service', icon: Gauge },
+        { label: 'Maintenance & Repairs', href: '/fleet/maintenance', icon: Wrench },
         { label: 'Fuel Expenses', href: '/fleet/fuel', icon: Fuel },
         {
           label: 'Truck Finance & P&L',

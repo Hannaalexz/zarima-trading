@@ -68,7 +68,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleMobileMenu }) => {
       description: `${t.makeModel} odometer ${t.mileageKm.toLocaleString()} km exceeded service interval.`,
       time: 'Immediate',
       type: 'warning' as const,
-      link: '/fleet/maintenance',
+      link: '/fleet/service',
     })),
     {
       id: 'notif-1',

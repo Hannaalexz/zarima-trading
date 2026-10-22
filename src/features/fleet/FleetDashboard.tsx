@@ -143,14 +143,23 @@ export const FleetDashboard: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Wrench className="w-4 h-4 text-forest dark:text-forest-vibrant" />
-                <span>Service &amp; Maintenance</span>
+                <span>Service &amp; Repairs</span>
               </h3>
-              <Link
-                to="/fleet/maintenance"
-                className="text-xs text-forest dark:text-forest-vibrant font-semibold hover:underline"
-              >
-                Log History
-              </Link>
+              <div className="flex items-center gap-2 text-xs">
+                <Link
+                  to="/fleet/service"
+                  className="text-forest dark:text-forest-vibrant font-semibold hover:underline"
+                >
+                  10k Service
+                </Link>
+                <span className="text-muted-foreground">&bull;</span>
+                <Link
+                  to="/fleet/maintenance"
+                  className="text-muted-foreground hover:text-foreground font-medium"
+                >
+                  Repairs
+                </Link>
+              </div>
             </div>
 
             <div className="space-y-3 mt-3">
@@ -179,12 +188,20 @@ export const FleetDashboard: React.FC = () => {
             </div>
           </div>
 
-          <Link
-            to="/fleet/maintenance"
-            className="w-full py-2 text-center text-xs font-semibold rounded-xl bg-surface-elevated hover:bg-forest/10 dark:hover:bg-forest-light/20 text-forest dark:text-forest-vibrant border border-forest/20 transition-colors block"
-          >
-            All Service Records ({maintenance.length})
-          </Link>
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to="/fleet/service"
+              className="py-2 text-center text-xs font-semibold rounded-xl bg-forest/10 hover:bg-forest/20 text-forest border border-forest/20 transition-colors block"
+            >
+              Scheduled (10k)
+            </Link>
+            <Link
+              to="/fleet/maintenance"
+              className="py-2 text-center text-xs font-semibold rounded-xl bg-surface-elevated hover:bg-surface text-foreground border border-border transition-colors block"
+            >
+              Repairs &amp; Parts
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -61,7 +61,7 @@ export const MaintenancePage: React.FC = () => {
   // Maintenance Modal State
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [truckPlate, setTruckPlate] = useState(trucks[0]?.plateNumber || '')
-  const [serviceType, setServiceType] = useState('10,000 km Scheduled Engine Oil, Filter & Water Separator Service')
+  const [serviceType, setServiceType] = useState('Brake Booster Overhaul & Drum Replacement')
   const [workshopName, setWorkshopName] = useState('TotalEnergies Truck Center Akaki')
   const [costETB, setCostETB] = useState<number>(38500)
   const [currentOdometerInput, setCurrentOdometerInput] = useState<number>(trucks[0]?.mileageKm || 142800)
@@ -70,7 +70,7 @@ export const MaintenancePage: React.FC = () => {
   const [serviceIntervalKm, setServiceIntervalKm] = useState<number>(10000)
   const [nextServiceDueKm, setNextServiceDueKm] = useState<number>(152800)
   const [nextServiceDueDate, setNextServiceDueDate] = useState('2026-11-25')
-  const [notes, setNotes] = useState('Standard 10,000 km cycle: 15W-40 commercial diesel engine oil, dual spin-on filters, fuel water separator cleared.')
+  const [notes, setNotes] = useState('Workshop corrective repair: brake lining and pneumatic air system overhaul.')
 
   // Fleet Purchase Modal State
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
@@ -93,28 +93,6 @@ export const MaintenancePage: React.FC = () => {
   const [manualStatementRef, setManualStatementRef] = useState('')
   const [manualReconcileNotes, setManualReconcileNotes] = useState('')
 
-  // Service Due Trucks Computation
-  const serviceDueTrucks = trucks.filter((truck) => {
-    const currentKm = truck.mileageKm || 0
-    const nextKm = truck.nextServiceDueKm || (truck.serviceIntervalKm || 10000)
-    return currentKm >= nextKm
-  })
-  const handleQuickLogOilChange = (plate: string) => {
-    const target = trucks.find((t) => t.plateNumber === plate)
-    const currentKm = target?.mileageKm || 0
-    const interval = target?.serviceIntervalKm || 10000
-
-    setTruckPlate(plate)
-    setCurrentOdometerInput(currentKm)
-    setServiceType('10,000 km Scheduled Engine Oil, Filter & Water Separator Service')
-    setServiceIntervalKm(interval)
-    setNextServiceDueKm(currentKm + interval)
-    setCostETB(38500)
-    setDisbursementRef(`CBE-MNT-2026-${Date.now().toString().slice(-4)}`)
-    setNotes(`Routine 10,000 km preventive overhaul: 15W-40 CI-4 commercial diesel engine oil, dual spin-on filters, fuel strainer.`)
-    setIsServiceModalOpen(true)
-  }
-
   // Handle changing truck in maintenance modal
   const handleTruckChangeInModal = (plate: string) => {
     setTruckPlate(plate)
@@ -125,7 +103,9 @@ export const MaintenancePage: React.FC = () => {
       setCurrentOdometerInput(currentKm)
       setServiceIntervalKm(interval)
       setNextServiceDueKm(currentKm + interval)
-      if (target.preferredWorkshop) setWorkshopName(target.preferredWorkshop)
+      if (target.designatedWorkshop || target.preferredWorkshop) {
+        setWorkshopName(target.designatedWorkshop || target.preferredWorkshop || 'TotalEnergies Truck Center Akaki')
+      }
     }
   }
 
@@ -347,20 +327,20 @@ export const MaintenancePage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Fleet Maintenance & Purchases"
-        description="Track vehicle service cycles, spare parts purchases, and fleet expenses."
+        title="Fleet Maintenance & Repairs"
+        description="Workshop corrective repairs, spare parts procurement, and general ledger journal reconciliation."
         breadcrumbs={[
           { label: 'Transport & Fleet', href: '/fleet' },
-          { label: 'Maintenance & Purchases' },
+          { label: 'Maintenance & Repairs' },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              to="/configuration?tab=trucks"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-purple-500/40 hover:bg-purple-500/10 text-foreground transition-all shadow-xs"
+              to="/fleet/service"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-forest/30 hover:bg-forest/10 text-forest transition-all shadow-xs"
             >
-              <Sliders className="w-3.5 h-3.5 text-purple-600" />
-              <span>Master Configuration</span>
+              <Gauge className="w-3.5 h-3.5" />
+              <span>Scheduled Service (10k) &rarr;</span>
             </Link>
             <button
               onClick={() => setIsPurchaseModalOpen(true)}
@@ -370,143 +350,15 @@ export const MaintenancePage: React.FC = () => {
               <span>New Purchase</span>
             </button>
             <button
-              onClick={() => {
-                const target = trucks[0]
-                if (target) handleQuickLogOilChange(target.plateNumber)
-                else setIsServiceModalOpen(true)
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
+              onClick={() => setIsServiceModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Log Service</span>
+              <span>Log Repair</span>
             </button>
           </div>
         }
       />
-
-      {/* SERVICE INTERVAL MONITOR */}
-      <div className="rounded-2xl border border-forest/30 bg-gradient-to-br from-forest/10 via-surface/95 to-surface p-5 shadow-card backdrop-blur-md">
-        <div className="flex items-center justify-between pb-3 border-b border-border/80">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-forest text-white flex items-center justify-center shrink-0 shadow-md shadow-forest/20">
-              <Wrench className="w-4 h-4" />
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-foreground">
-                Service Intervals &amp; Oil Cycles
-              </h3>
-              {serviceDueTrucks.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FF6B00] text-white">
-                  {serviceDueTrucks.length} Overdue
-                </span>
-              )}
-            </div>
-          </div>
-          <Link
-            to="/configuration?tab=trucks"
-            className="text-xs text-muted-foreground hover:text-forest transition-colors font-medium flex items-center gap-1"
-          >
-            <span>Configure in Master Data</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        {/* TRUCK INTERVAL LIVE MONITOR CARDS */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-          {trucks.map((truck) => {
-            const currentKm = truck.mileageKm || 0
-            const lastKm = truck.lastServiceKm || (truck.nextServiceDueKm ? truck.nextServiceDueKm - 10000 : 0)
-            const interval = truck.serviceIntervalKm || 10000
-            const nextDueKm = truck.nextServiceDueKm || (lastKm + interval)
-            const kmSinceLastService = Math.max(0, currentKm - lastKm)
-            const kmRemaining = nextDueKm - currentKm
-            const isOverdue = kmRemaining <= 0
-            const progressPercent = Math.min(100, Math.round((kmSinceLastService / interval) * 100))
-
-            return (
-              <div
-                key={truck.id}
-                className={`rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
-                  isOverdue
-                    ? 'border-[#FF6B00]/40 bg-[#FF6B00]/5 shadow-xs'
-                    : kmRemaining <= 2000
-                    ? 'border-amber-500/30 bg-amber-500/5'
-                    : 'border-border/80 bg-surface/90 hover:border-forest/40'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <span className="font-mono font-bold text-sm text-foreground">
-                        {truck.plateNumber}
-                      </span>
-                      <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
-                        {truck.makeModel}
-                      </div>
-                    </div>
-                    {isOverdue ? (
-                      <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-[#FF6B00] text-white">
-                        +{Math.abs(kmRemaining).toLocaleString()} km overdue
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded font-mono text-[10px] font-semibold bg-forest/15 text-forest">
-                        {kmRemaining.toLocaleString()} km left
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Visual Progress Bar */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1 font-mono">
-                      <span>{kmSinceLastService.toLocaleString()} / {interval.toLocaleString()} km</span>
-                      <span className="font-bold">{progressPercent}%</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-surface-elevated overflow-hidden border border-border/60">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isOverdue
-                            ? 'bg-[#FF6B00]'
-                            : progressPercent > 80
-                            ? 'bg-amber-500'
-                            : 'bg-forest'
-                        }`}
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-2.5 pt-2 border-t border-border/60 grid grid-cols-2 gap-2 text-[11px] font-mono">
-                    <div>
-                      <div className="text-muted-foreground text-[10px]">Current Odometer</div>
-                      <div className="font-bold text-foreground">{currentKm.toLocaleString()} km</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground text-[10px]">Target Due</div>
-                      <div className={`font-bold ${isOverdue ? 'text-[#FF6B00]' : 'text-foreground'}`}>
-                        {nextDueKm.toLocaleString()} km
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-2.5 border-t border-border/60">
-                  <button
-                    onClick={() => handleQuickLogOilChange(truck.plateNumber)}
-                    className={`w-full py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
-                      isOverdue
-                        ? 'bg-[#FF6B00] hover:bg-[#e05e00] text-white shadow-xs'
-                        : 'bg-forest/15 hover:bg-forest hover:text-white text-forest'
-                    }`}
-                  >
-                    <Wrench className="w-3.5 h-3.5" />
-                    <span>Log Service</span>
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
 
       {/* FINANCIAL & RECONCILIATION SUMMARY KPIS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1147,9 +999,9 @@ export const MaintenancePage: React.FC = () => {
                   <Wrench className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Log Maintenance Service</h3>
+                  <h3 className="text-base font-bold text-foreground">Log Workshop Repair</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Record completed service and update odometer cycle.
+                    Record vehicle mechanical repair and post GL journal outflow.
                   </p>
                 </div>
               </div>
@@ -1331,7 +1183,7 @@ export const MaintenancePage: React.FC = () => {
                   className="px-4 py-2 rounded-lg bg-forest hover:bg-forest-dark text-white font-semibold shadow-subtle dark:shadow-glow flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Post Service &amp; GL Journal</span>
+                  <span>Post Repair &amp; GL Journal</span>
                 </button>
               </div>
             </form>
