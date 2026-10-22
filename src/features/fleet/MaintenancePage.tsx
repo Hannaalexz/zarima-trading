@@ -412,7 +412,7 @@ export const MaintenancePage: React.FC = () => {
     <div className="space-y-6">
       <PageHeader
         title="Fleet Maintenance & Purchases"
-        description="Configurable 10,000 km oil change cycles with live truck odometer tracking, dual automated & manual journal reconciliation, and separate Cement vs Truck general ledgers."
+        description="Track vehicle service cycles, spare parts purchases, and fleet expenses."
         breadcrumbs={[
           { label: 'Transport & Fleet', href: '/fleet' },
           { label: 'Maintenance & Purchases' },
@@ -424,14 +424,14 @@ export const MaintenancePage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-purple-500/40 hover:bg-purple-500/10 text-foreground transition-all shadow-xs"
             >
               <Sliders className="w-3.5 h-3.5 text-purple-600" />
-              <span>Configure Truck &amp; 10k Intervals</span>
+              <span>Configure Intervals</span>
             </button>
             <button
               onClick={() => setIsPurchaseModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-[#FF6B00]/40 hover:bg-[#FF6B00]/10 text-foreground transition-all shadow-xs"
             >
               <Package className="w-3.5 h-3.5 text-[#FF6B00]" />
-              <span>Register Parts Purchase</span>
+              <span>New Purchase</span>
             </button>
             <button
               onClick={() => {
@@ -442,51 +442,33 @@ export const MaintenancePage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Log 10,000 km Service</span>
+              <span>Log Service</span>
             </button>
           </div>
         }
       />
 
-      {/* HOW SERVICE IS TRACKED & CONFIGURABLE 10,000 KM PREVENTIVE MONITOR */}
+      {/* SERVICE INTERVAL MONITOR */}
       <div className="rounded-2xl border border-forest/30 bg-gradient-to-br from-forest/10 via-surface/95 to-surface p-5 shadow-card backdrop-blur-md">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 pb-4 border-b border-border/80">
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-forest text-white flex items-center justify-center shrink-0 shadow-lg shadow-forest/20">
-              <Wrench className="w-5 h-5" />
+        <div className="flex items-center justify-between pb-3 border-b border-border/80">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-forest text-white flex items-center justify-center shrink-0 shadow-md shadow-forest/20">
+              <Wrench className="w-4 h-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-bold text-foreground">
-                  Preventive Maintenance Cycle: Configurable 10,000 KM Engine Oil &amp; Filter Rule
-                </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-forest text-white uppercase tracking-wider">
-                  Live Odometer Tracking
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-foreground">
+                Service Intervals &amp; Oil Cycles
+              </h3>
+              {serviceDueTrucks.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FF6B00] text-white">
+                  {serviceDueTrucks.length} Overdue
                 </span>
-                {serviceDueTrucks.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FF6B00] text-white animate-pulse">
-                    {serviceDueTrucks.length} Overdue
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 max-w-3xl leading-relaxed">
-                <strong>How it works:</strong> The standard rule is <strong>10,000 km</strong> for heavy-duty commercial rigs. When you open a truck's configuration, its <strong>current kilometer is pre-filled</strong> and can be updated when the driver reports back. As trips are completed, the system notifies you when the truck reaches or exceeds 10,000 km. Logging the service resets the odometer counter and posts a matched debit/credit journal entry.
-              </p>
+              )}
             </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0 self-start">
-            <button
-              onClick={() => handleOpenTruckConfig(trucks[0]?.plateNumber || '')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border hover:bg-forest/10 hover:border-forest/40 text-xs font-semibold text-foreground transition-colors"
-            >
-              <Sliders className="w-3.5 h-3.5 text-forest" />
-              <span>Configure Intervals &amp; Odometers</span>
-            </button>
           </div>
         </div>
 
-        {/* TRUCK INTERVAL LIVE MONITOR CARDS WITH PRE-FILLED ODOMETER & 1-CLICK ACTION */}
+        {/* TRUCK INTERVAL LIVE MONITOR CARDS */}
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
           {trucks.map((truck) => {
             const currentKm = truck.mileageKm || 0
@@ -521,7 +503,7 @@ export const MaintenancePage: React.FC = () => {
                     </div>
                     {isOverdue ? (
                       <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-[#FF6B00] text-white">
-                        +{Math.abs(kmRemaining).toLocaleString()} km OVERDUE
+                        +{Math.abs(kmRemaining).toLocaleString()} km overdue
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded font-mono text-[10px] font-semibold bg-forest/15 text-forest">
@@ -530,10 +512,10 @@ export const MaintenancePage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Visual Progress Bar towards 10,000 km */}
+                  {/* Visual Progress Bar */}
                   <div className="mt-3">
-                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                      <span>Cycle: {kmSinceLastService.toLocaleString()} / {interval.toLocaleString()} km</span>
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1 font-mono">
+                      <span>{kmSinceLastService.toLocaleString()} / {interval.toLocaleString()} km</span>
                       <span className="font-bold">{progressPercent}%</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-surface-elevated overflow-hidden border border-border/60">
@@ -556,7 +538,7 @@ export const MaintenancePage: React.FC = () => {
                       <div className="font-bold text-foreground">{currentKm.toLocaleString()} km</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground text-[10px]">Target Due ({interval / 1000}k)</div>
+                      <div className="text-muted-foreground text-[10px]">Target Due</div>
                       <div className={`font-bold ${isOverdue ? 'text-[#FF6B00]' : 'text-foreground'}`}>
                         {nextDueKm.toLocaleString()} km
                       </div>
@@ -574,7 +556,7 @@ export const MaintenancePage: React.FC = () => {
                     }`}
                   >
                     <Wrench className="w-3.5 h-3.5" />
-                    <span>Log 10,000 km Service</span>
+                    <span>Log Service</span>
                   </button>
                   <button
                     onClick={() => handleOpenTruckConfig(truck.plateNumber)}
@@ -749,10 +731,10 @@ export const MaintenancePage: React.FC = () => {
           <div className="p-3.5 bg-surface-elevated/50 border-b border-border flex items-center justify-between text-xs">
             <span className="font-semibold text-foreground flex items-center gap-2">
               <Wrench className="w-4 h-4 text-forest" />
-              <span>Commercial Fleet Workshop Logs &amp; Bank Disbursals</span>
+              <span>Workshop Maintenance Logs</span>
             </span>
-            <span className="text-muted-foreground text-[11px]">
-              Tick the box on any row to mark reconciled against CBE / Awash bank statements
+            <span className="text-muted-foreground text-[11px] font-mono">
+              {filteredMaintenance.length} records
             </span>
           </div>
 
@@ -870,10 +852,10 @@ export const MaintenancePage: React.FC = () => {
           <div className="p-3.5 bg-surface-elevated/50 border-b border-border flex items-center justify-between text-xs">
             <span className="font-semibold text-foreground flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-[#FF6B00]" />
-              <span>Procured Tires, Heavy Batteries, Lubricants &amp; Spares</span>
+              <span>Fleet Parts &amp; Tires</span>
             </span>
-            <span className="text-muted-foreground text-[11px]">
-              Tick to reconcile against company bank statement wire transfer debits
+            <span className="text-muted-foreground text-[11px] font-mono">
+              {filteredPurchases.length} records
             </span>
           </div>
 
@@ -989,13 +971,10 @@ export const MaintenancePage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-blue-600" />
-                <h3 className="text-base font-bold text-foreground">
-                  General Ledger Journal (Double-Entry Debit / Credit)
+                <h3 className="text-sm font-bold text-foreground">
+                  General Ledger Journal
                 </h3>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Segregated accounting ledgers: Toggle between <strong>Transport &amp; Fleet (Trucks)</strong> and <strong>Cement Trading</strong>.
-              </p>
             </div>
 
             {/* Division Switcher & Automated Reconcile Button */}
@@ -1061,14 +1040,11 @@ export const MaintenancePage: React.FC = () => {
             <div className="flex items-center gap-2 font-medium text-foreground">
               <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
               <span>
-                Viewing:{' '}
-                <strong>
-                  {journalDivision === 'Transport'
-                    ? 'Transport & Fleet Operating Journal (5200 Servicing, 5210 Spares, 5220 Fuel)'
-                    : journalDivision === 'Cement'
-                    ? 'Cement Trading Operations Journal (5100 Factory Purchases, 4000 Sales Receipts)'
-                    : 'Combined Company General Ledger'}
-                </strong>
+                {journalDivision === 'Transport'
+                  ? 'Transport & Fleet Ledger'
+                  : journalDivision === 'Cement'
+                  ? 'Cement Trading Ledger'
+                  : 'Combined General Ledger'}
               </span>
             </div>
 
@@ -1238,22 +1214,19 @@ export const MaintenancePage: React.FC = () => {
       {/* TAB 4: TRUCK CONFIGURATION & ODOMETERS */}
       {activeTab === 'intervals' && (
         <div className="rounded-2xl border border-border bg-surface/90 backdrop-blur-md shadow-card p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-border">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
             <div>
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-purple-600" />
-                <span>Commercial Vehicle Preventive Maintenance &amp; Odometer Configuration</span>
+                <span>Vehicle Configuration &amp; Odometers</span>
               </h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-                When you click on any commercial truck, its <strong>current kilometer is pre-filled</strong> and can be updated with fresh yard readings. Configure target intervals (default 10,000 km), warning lead margins, and oil grades.
-              </p>
             </div>
             <button
               onClick={() => handleOpenTruckConfig(trucks[0]?.plateNumber || '')}
               className="px-3.5 py-2 rounded-lg bg-forest hover:bg-forest-dark text-white text-xs font-semibold flex items-center gap-1.5 shadow-subtle shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Configure Truck Settings</span>
+              <span>Configure Vehicle</span>
             </button>
           </div>
 
@@ -1321,9 +1294,9 @@ export const MaintenancePage: React.FC = () => {
                   <Sliders className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Configure Truck &amp; Service Thresholds</h3>
+                  <h3 className="text-base font-bold text-foreground">Configure Truck Settings</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Pre-fills current odometer reading, configures 10,000 km rule, and sets lead warning margin.
+                    Update current odometer reading and service intervals.
                   </p>
                 </div>
               </div>
@@ -1354,15 +1327,12 @@ export const MaintenancePage: React.FC = () => {
                 </select>
               </div>
 
-              {/* CURRENT ODOMETER READING (PRE-FILLED & EDITABLE) */}
+              {/* CURRENT ODOMETER READING */}
               <div className="p-3 rounded-xl bg-surface-elevated/70 border border-border space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block font-bold text-foreground">
-                    Current Truck Kilometer (Odometer) <span className="text-red-500">*</span>
+                    Current Odometer (km) <span className="text-red-500">*</span>
                   </label>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-mono bg-forest/15 text-forest font-semibold">
-                    Pre-filled from database
-                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -1375,9 +1345,6 @@ export const MaintenancePage: React.FC = () => {
                   />
                   <span className="font-mono font-bold text-muted-foreground text-xs shrink-0">KM</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Update this whenever the driver logs a new trip distance in the transport dispatch yard.
-                </p>
               </div>
 
               {/* SERVICE INTERVAL CONFIGURATION */}
@@ -1514,9 +1481,9 @@ export const MaintenancePage: React.FC = () => {
                   <Wrench className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Log 10,000 km Maintenance Service</h3>
+                  <h3 className="text-base font-bold text-foreground">Log Maintenance Service</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Posts GL Debit (5200 Fleet Expense) &bull; Credit (1010 Bank Account) &bull; Resets next 10k km schedule
+                    Record completed service and update odometer cycle.
                   </p>
                 </div>
               </div>
@@ -1716,9 +1683,9 @@ export const MaintenancePage: React.FC = () => {
                   <Package className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Register Fleet Purchase &amp; Post GL</h3>
+                  <h3 className="text-base font-bold text-foreground">Register Fleet Purchase</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Record tires, batteries, and parts. Posts GL Debit (5210) &bull; Credit (1010 Bank Account).
+                    Record tires, batteries, and spare parts procurement.
                   </p>
                 </div>
               </div>
