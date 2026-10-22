@@ -111,6 +111,9 @@ export interface Truck {
   nextServiceDueDate?: string
   ownershipType?: 'Zarima Owned' | 'Subcontracted / Partner'
   fuelCapacityLiters?: number
+  warningLeadKm?: number // e.g. 1500 km notification lead
+  engineOilGrade?: string // e.g. '15W-40 CI-4 Heavy Duty'
+  preferredWorkshop?: string // e.g. 'TotalEnergies Truck Center Akaki'
 }
 
 export type DeliveryOperationalStatus = 'Pending' | 'Assigned' | 'In Transit' | 'Delivered' | 'Cancelled'
@@ -294,6 +297,11 @@ export interface FinancialTransaction {
   isReimbursement?: boolean
   reimbursedMemberExpenseId?: string
   status: 'Cleared' | 'Pending Reconciliation' | 'Reconciled'
+  reconciliationMethod?: 'Auto-Matched' | 'Manual'
+  reconciledStatementRef?: string
+  reconciledDate?: string
+  reconciledBy?: string
+  truckPlate?: string
   notes?: string
 }
 

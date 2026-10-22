@@ -15,6 +15,7 @@ export const TransactionsPage: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('ALL')
+  const [divisionFilter, setDivisionFilter] = useState<'ALL' | 'Transport' | 'Cement' | 'Shared'>('ALL')
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Form states
@@ -30,9 +31,15 @@ export const TransactionsPage: React.FC = () => {
       tx.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tx.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (tx.notes && tx.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (tx.truckPlate && tx.truckPlate.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (typeof tx.paidByMember === 'string' && tx.paidByMember.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchType = typeFilter === 'ALL' || tx.type === typeFilter
-    return matchSearch && matchType
+    const matchDivision =
+      divisionFilter === 'ALL' ||
+      tx.businessActivity === divisionFilter ||
+      (divisionFilter === 'Transport' && (tx.category.includes('Fleet') || tx.category.includes('Maintenance') || tx.category.includes('Freight'))) ||
+      (divisionFilter === 'Cement' && (tx.category.includes('Cement') || tx.category.includes('Depot')))
+    return matchSearch && matchType && matchDivision
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -106,6 +113,65 @@ export const TransactionsPage: React.FC = () => {
           </div>
         }
       />
+
+      {/* Journal Division Tabs: Separate for Cement and Trucks */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-surface/90 border border-border shadow-card overflow-x-auto text-xs">
+        <button
+          onClick={() => setDivisionFilter('ALL')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold transition-all ${
+            divisionFilter === 'ALL'
+              ? 'bg-foreground text-background shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span>All General Ledger</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/10 font-mono">
+            {transactions.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setDivisionFilter('Transport')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold transition-all ${
+            divisionFilter === 'Transport'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span>🚛 Trucks &amp; Fleet Journal</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
+            {transactions.filter((t) => t.businessActivity === 'Transport' || t.category.includes('Fleet') || t.category.includes('Maintenance')).length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setDivisionFilter('Cement')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold transition-all ${
+            divisionFilter === 'Cement'
+              ? 'bg-forest text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span>🏗️ Cement Trading Journal</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
+            {transactions.filter((t) => t.businessActivity === 'Cement' || t.category.includes('Cement')).length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setDivisionFilter('Shared')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold transition-all ${
+            divisionFilter === 'Shared'
+              ? 'bg-[#FF6B00] text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span>🏢 Shared Headquarters Overhead</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-white font-mono">
+            {transactions.filter((t) => t.businessActivity === 'Shared').length}
+          </span>
+        </button>
+      </div>
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-surface/90 backdrop-blur-md border border-border shadow-card">

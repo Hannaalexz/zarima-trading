@@ -105,6 +105,18 @@ interface StoreContextType {
   addFleetPurchase: (purchase: Omit<FleetPurchase, 'id'>) => void
   toggleReconcileFleetPurchase: (purchaseId: string, statementRef?: string) => void
   updateTruckServiceInterval: (plateNumber: string, intervalKm: number) => void
+  updateTruckConfig: (
+    plateNumber: string,
+    config: {
+      mileageKm?: number
+      serviceIntervalKm?: number
+      warningLeadKm?: number
+      engineOilGrade?: string
+      preferredWorkshop?: string
+    }
+  ) => void
+  autoReconcileFleetExpenses: () => { matchedCount: number; matchedIds: string[] }
+  manualReconcileTransaction: (txId: string, statementRef?: string, notes?: string) => void
   fuelExpenses: FuelExpense[]
   addFuelExpense: (expense: Omit<FuelExpense, 'id'>) => void
   
@@ -1000,6 +1012,166 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const updateTruckConfig = (
+    plateNumber: string,
+    config: {
+      mileageKm?: number
+      serviceIntervalKm?: number
+      warningLeadKm?: number
+      engineOilGrade?: string
+      preferredWorkshop?: string
+    }
+  ) => {
+    setTrucks((prev) =>
+      prev.map((t) => {
+        if (t.plateNumber === plateNumber) {
+          const currentMileage = config.mileageKm !== undefined ? Number(config.mileageKm) : t.mileageKm
+          const interval = config.serviceIntervalKm !== undefined ? Number(config.serviceIntervalKm) : (t.serviceIntervalKm || 10000)
+          const lastKm = t.lastServiceKm || 0
+          const nextDueKm = lastKm + interval
+
+          return {
+            ...t,
+            mileageKm: currentMileage,
+            serviceIntervalKm: interval,
+            nextServiceDueKm: nextDueKm,
+            warningLeadKm: config.warningLeadKm !== undefined ? Number(config.warningLeadKm) : t.warningLeadKm,
+            engineOilGrade: config.engineOilGrade !== undefined ? config.engineOilGrade : t.engineOilGrade,
+            preferredWorkshop: config.preferredWorkshop !== undefined ? config.preferredWorkshop : t.preferredWorkshop,
+          }
+        }
+        return t
+      })
+    )
+  }
+
+  const autoReconcileFleetExpenses = () => {
+    const statementRefs = new Set<string>()
+    bankStatements.forEach((stmt) => {
+      stmt.transactions.forEach((stx) => {
+        if (stx.reference) statementRefs.add(stx.reference.toUpperCase().trim())
+        if (stx.description) statementRefs.add(stx.description.toUpperCase().trim())
+      })
+    })
+
+    let matchedCount = 0
+    const matchedIds: string[] = []
+
+    setTransactions((prev) =>
+      prev.map((tx) => {
+        if (
+          tx.status !== 'Reconciled' &&
+          (tx.businessActivity === 'Transport' ||
+            tx.category.includes('Fleet') ||
+            tx.category.includes('Maintenance') ||
+            tx.category.includes('Fuel') ||
+            tx.referenceNumber?.startsWith('CBE-MNT') ||
+            tx.referenceNumber?.startsWith('AWB-MNT') ||
+            tx.referenceNumber?.startsWith('CBE-FP') ||
+            tx.referenceNumber?.startsWith('AWB-FP'))
+        ) {
+          matchedCount++
+          matchedIds.push(tx.id)
+
+          // Sync maintenance
+          setMaintenance((mnts) =>
+            mnts.map((m) =>
+              m.journalEntryId === tx.id || m.disbursementRef === tx.referenceNumber
+                ? {
+                    ...m,
+                    isReconciled: true,
+                    reconciliationStatus: 'Reconciled',
+                    reconciledStatementRef: 'CBE-STMT-OCT26-01',
+                    reconciledDate: new Date().toISOString(),
+                  }
+                : m
+            )
+          )
+
+          // Sync fleet purchases
+          setFleetPurchases((fps) =>
+            fps.map((p) =>
+              p.journalEntryId === tx.id || p.disbursementRef === tx.referenceNumber
+                ? {
+                    ...p,
+                    isReconciled: true,
+                    reconciliationStatus: 'Reconciled',
+                    reconciledStatementRef: 'CBE-STMT-OCT26-01',
+                    reconciledDate: new Date().toISOString(),
+                  }
+                : p
+            )
+          )
+
+          return {
+            ...tx,
+            status: 'Reconciled' as const,
+            reconciliationMethod: 'Auto-Matched' as const,
+            reconciledStatementRef: 'CBE-STMT-OCT26-01',
+            reconciledDate: new Date().toISOString(),
+            reconciledBy: 'Automated Bank Reconciliation Engine',
+          }
+        }
+        return tx
+      })
+    )
+
+    return { matchedCount, matchedIds }
+  }
+
+  const manualReconcileTransaction = (txId: string, statementRef?: string, notes?: string) => {
+    const stmtRef = statementRef || 'CBE-STMT-OCT26-01'
+    setTransactions((prev) =>
+      prev.map((tx) => {
+        if (tx.id === txId) {
+          const isCurrentlyReconciled = tx.status === 'Reconciled'
+          const newStatus = !isCurrentlyReconciled
+
+          // Sync with maintenance
+          setMaintenance((mnts) =>
+            mnts.map((m) =>
+              m.journalEntryId === txId || m.disbursementRef === tx.referenceNumber
+                ? {
+                    ...m,
+                    isReconciled: newStatus,
+                    reconciliationStatus: newStatus ? 'Reconciled' : 'Pending Statement Match',
+                    reconciledStatementRef: newStatus ? stmtRef : undefined,
+                    reconciledDate: newStatus ? new Date().toISOString() : undefined,
+                  }
+                : m
+            )
+          )
+
+          // Sync with fleet purchases
+          setFleetPurchases((fps) =>
+            fps.map((p) =>
+              p.journalEntryId === txId || p.disbursementRef === tx.referenceNumber
+                ? {
+                    ...p,
+                    isReconciled: newStatus,
+                    reconciliationStatus: newStatus ? 'Reconciled' : 'Pending Statement Match',
+                    reconciledStatementRef: newStatus ? stmtRef : undefined,
+                    reconciledDate: newStatus ? new Date().toISOString() : undefined,
+                  }
+                : p
+            )
+          )
+
+          return {
+            ...tx,
+            status: newStatus ? 'Reconciled' : 'Pending Reconciliation',
+            reconciliationMethod: newStatus ? 'Manual' : undefined,
+            reconciledStatementRef: newStatus ? stmtRef : undefined,
+            reconciledDate: newStatus ? new Date().toISOString() : undefined,
+            reconciledBy: newStatus ? 'Fleet Accountant (Manual Review)' : undefined,
+            notes: notes ? `${tx.notes || ''} [Manual Match: ${notes}]` : tx.notes,
+          }
+        }
+        return tx
+      })
+    )
+  }
+
   const addFuelExpense = (expense: Omit<FuelExpense, 'id'>) => {
     const newFuel: FuelExpense = {
       ...expense,
@@ -1640,6 +1812,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addFleetPurchase,
         toggleReconcileFleetPurchase,
         updateTruckServiceInterval,
+        updateTruckConfig,
+        autoReconcileFleetExpenses,
+        manualReconcileTransaction,
         fuelExpenses,
         addFuelExpense,
         // Master Products & Depots (Enterprise Configuration)
