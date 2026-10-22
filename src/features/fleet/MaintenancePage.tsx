@@ -151,8 +151,8 @@ export const MaintenancePage: React.FC = () => {
     })
 
     toast({
-      title: 'Service & GL Journal Posted',
-      description: `Logged 10,000 km service for ${truckPlate} (${formatCurrency(costETB)}). Debit: 5200 (Fleet Expense) | Credit: ${matchedBank.bankName}. Next service due at ${scheduledDue.toLocaleString()} km.`,
+      title: 'Repair & GL Journal Posted',
+      description: `Logged repair for ${truckPlate} (${formatCurrency(costETB)}). Debit: 5200 (Fleet Expense) | Credit: ${matchedBank.bankName}.`,
       type: 'success',
     })
 
@@ -340,7 +340,7 @@ export const MaintenancePage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-surface border border-forest/30 hover:bg-forest/10 text-forest transition-all shadow-xs"
             >
               <Gauge className="w-3.5 h-3.5" />
-              <span>Scheduled Service (10k) &rarr;</span>
+              <span>Scheduled Service &rarr;</span>
             </Link>
             <button
               onClick={() => setIsPurchaseModalOpen(true)}
@@ -525,7 +525,7 @@ export const MaintenancePage: React.FC = () => {
                   <th className="py-3 px-4">Workshop Facility</th>
                   <th className="py-3 px-4">Payment &amp; Bank</th>
                   <th className="py-3 px-4 text-right">Cost (ETB)</th>
-                  <th className="py-3 px-4 text-right">10k Due (km)</th>
+                  <th className="py-3 px-4 text-right">Next Due (km)</th>
                   <th className="py-3 px-4 text-center">Status</th>
                 </tr>
               </thead>
@@ -1075,7 +1075,7 @@ export const MaintenancePage: React.FC = () => {
                   value={serviceType}
                   onChange={(e) => setServiceType(e.target.value)}
                   className="w-full p-2 bg-surface border border-border rounded-lg text-foreground"
-                  placeholder="e.g. 10,000 km Scheduled Engine Oil & Filter Change"
+                  placeholder="e.g. Brake booster overhaul or workshop mechanical repair"
                 />
               </div>
 

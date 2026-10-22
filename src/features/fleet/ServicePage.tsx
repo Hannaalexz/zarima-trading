@@ -40,7 +40,7 @@ export const ServicePage: React.FC = () => {
   // Log Service Modal State
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [truckPlate, setTruckPlate] = useState(trucks[0]?.plateNumber || '')
-  const [serviceType, setServiceType] = useState('10,000 km Scheduled Engine Oil, Filter & Water Separator Service')
+  const [serviceType, setServiceType] = useState('Scheduled Engine Oil & Filter Service')
   const [workshopName, setWorkshopName] = useState('TotalEnergies Truck Center Akaki')
   const [costETB, setCostETB] = useState<number>(38500)
   const [currentOdometerInput, setCurrentOdometerInput] = useState<number>(trucks[0]?.mileageKm || 142800)
@@ -48,7 +48,7 @@ export const ServicePage: React.FC = () => {
   const [disbursementRef, setDisbursementRef] = useState<string>(`CBE-MNT-2026-${Date.now().toString().slice(-4)}`)
   const [serviceIntervalKm, setServiceIntervalKm] = useState<number>(10000)
   const [nextServiceDueKm, setNextServiceDueKm] = useState<number>(152800)
-  const [notes, setNotes] = useState('Routine 10,000 km preventive overhaul: 15W-40 CI-4 commercial diesel engine oil, dual spin-on filters, fuel strainer.')
+  const [notes, setNotes] = useState('Preventive overhaul: engine oil, spin-on filters, fuel strainer.')
 
   // Service Due Trucks Computation
   const serviceDueTrucks = trucks.filter((truck) => {
@@ -72,12 +72,12 @@ export const ServicePage: React.FC = () => {
 
     setTruckPlate(plate)
     setCurrentOdometerInput(currentKm)
-    setServiceType('10,000 km Scheduled Engine Oil, Filter & Water Separator Service')
+    setServiceType('Scheduled Engine Oil & Filter Service')
     setServiceIntervalKm(interval)
     setNextServiceDueKm(currentKm + interval)
     setCostETB(38500)
     setDisbursementRef(`CBE-MNT-2026-${Date.now().toString().slice(-4)}`)
-    setNotes(`Routine 10,000 km preventive overhaul: 15W-40 CI-4 commercial diesel engine oil, dual spin-on filters, fuel strainer.`)
+    setNotes(`Preventive overhaul: engine oil, spin-on filters, fuel strainer.`)
     if (target?.designatedWorkshop || target?.preferredWorkshop) {
       setWorkshopName(target.designatedWorkshop || target.preferredWorkshop || 'TotalEnergies Truck Center Akaki')
     }
@@ -142,8 +142,8 @@ export const ServicePage: React.FC = () => {
     })
 
     toast({
-      title: 'Scheduled Service Logged & Counter Reset',
-      description: `Truck ${truckPlate} service recorded. Next 10,000 km service due at ${calculatedNextDueKm.toLocaleString()} km. Debit entry posted to General Ledger.`,
+      title: 'Service Logged',
+      description: `Truck ${truckPlate} service recorded. Next service due at ${calculatedNextDueKm.toLocaleString()} km.`,
       type: 'success',
     })
 
@@ -185,8 +185,8 @@ export const ServicePage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Scheduled Service & Oil Cycles"
-        description="Live truck odometer tracking, 10,000 km engine oil & filter cycles, and routine preventive service records."
+        title="Scheduled Service"
+        description="Odometer-based preventive service tracking and logs."
         breadcrumbs={[
           { label: 'Transport & Fleet', href: '/fleet' },
           { label: 'Scheduled Service' },
@@ -216,7 +216,7 @@ export const ServicePage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-forest hover:bg-forest-dark text-white transition-all shadow-subtle dark:shadow-glow"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Log 10,000 km Service</span>
+              <span>Log Service</span>
             </button>
           </div>
         }
@@ -239,14 +239,14 @@ export const ServicePage: React.FC = () => {
 
         <div className="p-4 rounded-2xl bg-surface/90 border border-border shadow-card backdrop-blur-md">
           <div className="flex items-center justify-between text-muted-foreground mb-2">
-            <span className="text-xs font-semibold">Overdue for Oil Service</span>
+            <span className="text-xs font-semibold">Overdue for Service</span>
             <AlertTriangle className="w-4 h-4 text-[#FF6B00]" />
           </div>
           <div className="text-xl font-bold font-mono text-[#FF6B00]">
             {serviceDueTrucks.length} Trucks Overdue
           </div>
           <div className="text-[11px] text-muted-foreground mt-1">
-            Exceeded configured service interval
+            Exceeded service interval
           </div>
         </div>
 
@@ -448,7 +448,7 @@ export const ServicePage: React.FC = () => {
                   }`}
                 >
                   <Wrench className="w-3.5 h-3.5" />
-                  <span>Log 10,000 km Service</span>
+                  <span>Log Service</span>
                 </button>
               </div>
             </div>
@@ -461,10 +461,10 @@ export const ServicePage: React.FC = () => {
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-foreground">
-              Scheduled Preventive Service Logs
+              Service History
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Completed engine oil, filter replacement, and preventive overhaul disbursements.
+              Completed preventive maintenance and workshop disbursements.
             </p>
           </div>
           <span className="text-xs font-semibold text-muted-foreground">
@@ -538,10 +538,10 @@ export const ServicePage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">
-                    Log 10,000 km Scheduled Service
+                    Log Scheduled Service
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Reset truck odometer cycle and post GL maintenance disbursement.
+                    Record completed service and update odometer threshold.
                   </p>
                 </div>
               </div>

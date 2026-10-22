@@ -150,7 +150,7 @@ export const FleetDashboard: React.FC = () => {
                   to="/fleet/service"
                   className="text-forest dark:text-forest-vibrant font-semibold hover:underline"
                 >
-                  10k Service
+                  Service
                 </Link>
                 <span className="text-muted-foreground">&bull;</span>
                 <Link
@@ -193,7 +193,7 @@ export const FleetDashboard: React.FC = () => {
               to="/fleet/service"
               className="py-2 text-center text-xs font-semibold rounded-xl bg-forest/10 hover:bg-forest/20 text-forest border border-forest/20 transition-colors block"
             >
-              Scheduled (10k)
+              Scheduled Service
             </Link>
             <Link
               to="/fleet/maintenance"
