@@ -21,17 +21,37 @@ import {
   XCircle,
   Plus,
   Trash2,
+  Calendar,
+  Building2,
+  Edit3,
+  Save,
+  ExternalLink,
+  Check,
+  X,
+  FileDown,
+  ChevronDown,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useStore } from '@/data/storeContext'
 import { useAuth } from '@/data/authContext'
 import { useToast } from '@/hooks/useToast'
-import { BankAccount, BankStatement, BankStatementTransaction, BusinessActivity, ReconciliationMatchStatus } from '@/types'
+import {
+  AnnualBeginningBalance,
+  BankAccount,
+  BankStatement,
+  BankStatementTransaction,
+  BusinessActivity,
+  ReconciliationMatchStatus,
+} from '@/types'
+import { downloadImportTemplate, IMPORT_TEMPLATES } from '@/lib/downloadTemplates'
 
 export const ReconciliationPage: React.FC = () => {
   const {
     bankAccounts,
+    annualBeginningBalances,
+    updateAnnualBeginningBalance,
+    addAnnualBeginningBalance,
     bankStatements,
     transactions,
     reconciliations,
@@ -46,6 +66,26 @@ export const ReconciliationPage: React.FC = () => {
   const { addToast } = useToast()
 
   const normalizeBankId = (id?: string) => (id || '').replace(/^BA-/, 'BANK-')
+
+  // View mode switcher: daily statements vs annual balances
+  const [activeViewMode, setActiveViewMode] = useState<'daily_statements' | 'annual_balances'>('daily_statements')
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState<number>(2026)
+
+  // Download Templates Modal
+  const [isDownloadTemplatesModalOpen, setIsDownloadTemplatesModalOpen] = useState(false)
+
+  // Editing Beginning Balance inline
+  const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null)
+  const [editingBalanceVal, setEditingBalanceVal] = useState<string>('')
+  const [editingBalanceNotes, setEditingBalanceNotes] = useState<string>('')
+
+  // Add Beginning Balance Modal
+  const [isAddBalanceModalOpen, setIsAddBalanceModalOpen] = useState(false)
+  const [newBalanceBankId, setNewBalanceBankId] = useState<string>(bankAccounts[0]?.id || 'BANK-01')
+  const [newBalanceYear, setNewBalanceYear] = useState<number>(2026)
+  const [newBalanceAmount, setNewBalanceAmount] = useState<string>('5000000')
+  const [newBalanceVoucher, setNewBalanceVoucher] = useState<string>('OPB-2026-NEW')
+  const [newBalanceNotes, setNewBalanceNotes] = useState<string>('Audited opening balance carryforward')
 
   // Selected bank account tab
   const [selectedBankId, setSelectedBankId] = useState<string>(bankAccounts[0]?.id || 'BANK-01')
@@ -376,14 +416,150 @@ export const ReconciliationPage: React.FC = () => {
     })
   }
 
+  // Annual Beginning Balance calculations & helpers
+  const fiscalYears = [2026, 2025, 2024]
+
+  const filteredBalances = useMemo(() => {
+    return annualBeginningBalances.filter((b) => b.fiscalYear === selectedFiscalYear)
+  }, [annualBeginningBalances, selectedFiscalYear])
+
+  const totalAnnualBeginningBalance = useMemo(() => {
+    return filteredBalances.reduce((sum, b) => sum + b.beginningBalanceETB, 0)
+  }, [filteredBalances])
+
+  const auditedAccountsCount = useMemo(() => {
+    return filteredBalances.filter((b) => b.status === 'Audited').length
+  }, [filteredBalances])
+
+  // Current bank account's annual beginning balance for the active year (2026)
+  const activeBankBeginningBalance = useMemo(() => {
+    if (!activeBankAccount) return null
+    return annualBeginningBalances.find(
+      (b) =>
+        b.fiscalYear === 2026 &&
+        (normalizeBankId(b.bankAccountId) === normalizeBankId(activeBankAccount.id) ||
+          b.bankName.toLowerCase().includes(activeBankAccount.bankName.split('(')[0].trim().toLowerCase()))
+    )
+  }, [annualBeginningBalances, activeBankAccount])
+
+  const handleStartEditBalance = (item: AnnualBeginningBalance) => {
+    setEditingBalanceId(item.id)
+    setEditingBalanceVal(item.beginningBalanceETB.toString())
+    setEditingBalanceNotes(item.notes || '')
+  }
+
+  const handleSaveEditedBalance = (item: AnnualBeginningBalance) => {
+    const parsed = parseFloat(editingBalanceVal)
+    if (isNaN(parsed) || parsed < 0) {
+      addToast({
+        type: 'error',
+        title: 'Invalid Amount',
+        description: 'Please enter a valid non-negative beginning balance amount.',
+      })
+      return
+    }
+    updateAnnualBeginningBalance(item.id, parsed, editingBalanceNotes)
+    addToast({
+      type: 'success',
+      title: 'Annual Beginning Balance Updated',
+      description: `${item.bankName} (${item.fiscalYear}) updated to ETB ${parsed.toLocaleString()}.`,
+    })
+    setEditingBalanceId(null)
+  }
+
+  const handleAddNewBeginningBalance = () => {
+    const bank = bankAccounts.find((b) => b.id === newBalanceBankId) || bankAccounts[0]
+    const parsed = parseFloat(newBalanceAmount)
+    if (isNaN(parsed) || parsed < 0) {
+      addToast({
+        type: 'error',
+        title: 'Invalid Amount',
+        description: 'Please enter a valid non-negative beginning balance amount.',
+      })
+      return
+    }
+
+    addAnnualBeginningBalance({
+      fiscalYear: newBalanceYear,
+      fiscalYearName: `FY ${newBalanceYear} (${newBalanceYear - 8} E.C.)`,
+      startDate: `${newBalanceYear}-01-01`,
+      bankAccountId: bank.id,
+      bankName: bank.bankName,
+      accountNumber: bank.accountNumber,
+      beginningBalanceETB: parsed,
+      openingBalanceVoucherRef: newBalanceVoucher || `OPB-${newBalanceYear}-${bank.bankName.substring(0, 3).toUpperCase()}`,
+      verifiedBy: currentUser?.name || 'Bethlehem Tefera (Finance Lead)',
+      status: 'Audited',
+      notes: newBalanceNotes || 'Annual opening ledger certified',
+    })
+
+    addToast({
+      type: 'success',
+      title: 'Beginning Balance Created',
+      description: `Added opening balance for ${bank.bankName} (FY ${newBalanceYear}).`,
+    })
+    setIsAddBalanceModalOpen(false)
+  }
+
+  const handleDownloadAllTemplates = () => {
+    const keys = Object.keys(IMPORT_TEMPLATES) as Array<keyof typeof IMPORT_TEMPLATES>
+    keys.forEach((key, index) => {
+      setTimeout(() => {
+        downloadImportTemplate(key)
+      }, index * 200)
+    })
+    addToast({
+      type: 'success',
+      title: 'Templates Downloading',
+      description: 'Downloaded all 6 official Excel / CSV templates to your computer.',
+    })
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Automated Bank Reconciliation"
-        description="Extract, normalize, and match official bank statements (.xlsx, .pdf, .docx) against company ledgers across all 10 corporate bank accounts."
+        title="Bank Reconciliation & Annual Balances"
+        description="Extract, normalize, and match official bank statements (.xlsx, .pdf, .docx) against company ledgers across all 10 corporate bank accounts, anchored by certified annual beginning balances."
         badgeText="Treasury Operations"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* View Switcher Tabs */}
+            <div className="p-1 rounded-xl bg-surface border border-border flex items-center gap-1 shadow-xs">
+              <button
+                onClick={() => setActiveViewMode('daily_statements')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeViewMode === 'daily_statements'
+                    ? 'bg-forest text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Scale className="w-3.5 h-3.5" />
+                <span>Statements &amp; Auto-Reconcile</span>
+              </button>
+              <button
+                onClick={() => setActiveViewMode('annual_balances')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeViewMode === 'annual_balances'
+                    ? 'bg-forest text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                <span>Annual Beginning Balances</span>
+              </button>
+            </div>
+
+            {/* Download All Import Templates Button */}
+            <button
+              onClick={() => setIsDownloadTemplatesModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface border border-border hover:border-forest/50 text-foreground font-bold text-xs shadow-xs transition-all active:scale-95"
+              title="Download official CSV templates for bank statements, fleet odometers, cement purchases, payroll, etc."
+            >
+              <Download className="w-4 h-4 text-forest" />
+              <span>Download Templates</span>
+            </button>
+
+            {/* Import Bank Statement Button */}
             <button
               onClick={() => {
                 setUploadStep('select')
@@ -392,7 +568,7 @@ export const ReconciliationPage: React.FC = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#EA580C] text-white font-bold text-xs shadow-md transition-all active:scale-95"
             >
               <Upload className="w-4 h-4" />
-              <span>Import Bank Statement</span>
+              <span>Import Statement</span>
             </button>
           </div>
         }
@@ -418,8 +594,268 @@ export const ReconciliationPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Signature Dark Cards Metric Showcase (User Requested Style) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {activeViewMode === 'annual_balances' ? (
+        <div className="space-y-6">
+          {/* Fiscal Year Selector Header */}
+          <div className="p-4 rounded-2xl bg-surface border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-foreground text-sm uppercase tracking-wider">Company Fiscal Year Opening Balances</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-forest/15 text-forest border border-forest/30">
+                  Audited Carryforward
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Statutory opening cash &amp; bank ledger positions for Zarima Trading across corporate accounts. Required anchor for all bank reconciliations.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-surface-elevated p-1 rounded-xl border border-border">
+                {fiscalYears.map((year) => (
+                  <button
+                    key={year}
+                    onClick={() => {
+                      setSelectedFiscalYear(year)
+                      setEditingBalanceId(null)
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      selectedFiscalYear === year
+                        ? 'bg-forest text-white shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    FY {year} ({year - 8} E.C.)
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => {
+                  setNewBalanceYear(selectedFiscalYear)
+                  setIsAddBalanceModalOpen(true)
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white text-xs font-bold shadow-xs transition-all active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Account Balance</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Signature Dark Cards Metric Showcase for Annual Opening Balances */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Card 1: Total Corporate Opening Cash */}
+            <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-forest/40 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-28 h-28 bg-forest/15 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+                <span className="uppercase tracking-wider">Total Corporate Opening Balance</span>
+                <Landmark className="w-4 h-4 text-forest" />
+              </div>
+              <div className="text-2xl font-black text-white tracking-tight">
+                ETB {totalAnnualBeginningBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-[11px] text-forest mt-2 flex items-center gap-1 font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Across all corporate bank accounts (FY {selectedFiscalYear})</span>
+              </div>
+            </div>
+
+            {/* Card 2: Audited Accounts Verification */}
+            <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-forest/30 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-28 h-28 bg-forest/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+                <span className="uppercase tracking-wider">Audit Certification</span>
+                <ShieldCheck className="w-4 h-4 text-forest" />
+              </div>
+              <div className="text-2xl font-black text-white tracking-tight">
+                {auditedAccountsCount} / {filteredBalances.length} Accounts Certified
+              </div>
+              <div className="text-[11px] text-white/70 mt-2 flex items-center gap-1 font-semibold">
+                <span>100% Verified with External Auditor Stamp</span>
+              </div>
+            </div>
+
+            {/* Card 3: Fiscal Period Boundary */}
+            <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-forest/30 shadow-xl relative overflow-hidden group">
+              <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+                <span className="uppercase tracking-wider">Fiscal Effective Date</span>
+                <Calendar className="w-4 h-4 text-forest" />
+              </div>
+              <div className="text-2xl font-black text-white tracking-tight">
+                Jan 1, {selectedFiscalYear}
+              </div>
+              <div className="text-[11px] text-white/70 mt-2 flex items-center gap-1 font-semibold">
+                <span>Hamle 1, {selectedFiscalYear - 8} E.C. (Ethiopian Calendar)</span>
+              </div>
+            </div>
+
+            {/* Card 4: Primary Master Opening Voucher */}
+            <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-[#FF6B00]/40 shadow-xl relative overflow-hidden group">
+              <div className="flex items-center justify-between text-xs font-bold text-white/60 mb-2">
+                <span className="uppercase tracking-wider">Master Voucher Ref</span>
+                <FileSpreadsheet className="w-4 h-4 text-[#FF6B00]" />
+              </div>
+              <div className="text-xl font-black text-[#FF6B00] tracking-tight">
+                OPB-{selectedFiscalYear}-ALL-ZARIMA
+              </div>
+              <div className="text-[11px] text-white/70 mt-2 flex items-center gap-1 font-semibold">
+                <span>Certified by Bethlehem Tefera &amp; Lead Partner</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Table of Account Beginning Balances */}
+          <div className="rounded-2xl border border-border bg-surface overflow-hidden shadow-card">
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-elevated/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-forest/15 text-forest flex items-center justify-center font-bold">
+                  <Landmark className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground text-sm">
+                    Bank Accounts Opening Ledgers &bull; FY {selectedFiscalYear} ({selectedFiscalYear - 8} E.C.)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Inline editable beginning balances with opening journal voucher audit references.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">
+                {filteredBalances.length} Registered Accounts
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-surface-elevated text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="py-3 px-4 font-bold">Bank Name &amp; Account Number</th>
+                    <th className="py-3 px-4 font-bold text-right">Annual Beginning Balance (ETB)</th>
+                    <th className="py-3 px-4 font-bold">Opening Voucher Ref</th>
+                    <th className="py-3 px-4 font-bold">Audit Status</th>
+                    <th className="py-3 px-4 font-bold">Verified By &amp; Notes</th>
+                    <th className="py-3 px-4 font-bold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredBalances.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                        No opening balances recorded for FY {selectedFiscalYear}. Click "Add Account Balance" above to set up this year.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredBalances.map((item) => {
+                      const isEditing = editingBalanceId === item.id
+                      return (
+                        <tr key={item.id} className="hover:bg-surface-elevated/40 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-foreground">{item.bankName}</div>
+                            <div className="font-mono text-[11px] text-muted-foreground">
+                              Acc: {item.accountNumber}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            {isEditing ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <span className="font-mono text-[11px] text-muted-foreground">ETB</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editingBalanceVal}
+                                  onChange={(e) => setEditingBalanceVal(e.target.value)}
+                                  className="w-36 px-2.5 py-1 rounded-lg bg-surface border border-forest font-mono text-xs font-bold text-right focus:outline-none focus:ring-1 focus:ring-forest"
+                                />
+                              </div>
+                            ) : (
+                              <div className="font-mono font-black text-sm text-foreground">
+                                ETB {item.beginningBalanceETB.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-mono text-[11px] px-2 py-0.5 rounded-lg bg-surface-elevated border border-border text-foreground font-semibold">
+                              {item.openingBalanceVoucherRef}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-forest/15 text-forest border border-forest/30">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>{item.status}</span>
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                placeholder="Audit note / reason for adjustment"
+                                value={editingBalanceNotes}
+                                onChange={(e) => setEditingBalanceNotes(e.target.value)}
+                                className="w-full px-2 py-1 rounded-lg bg-surface border border-border text-[11px] focus:outline-none"
+                              />
+                            ) : (
+                              <div>
+                                <div className="font-semibold text-foreground text-[11px]">{item.verifiedBy}</div>
+                                <div className="text-[10px] text-muted-foreground line-clamp-1">{item.notes}</div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            {isEditing ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleSaveEditedBalance(item)}
+                                  className="p-1.5 rounded-lg bg-forest hover:bg-forest-dark text-white shadow-xs transition-colors"
+                                  title="Save Balance"
+                                >
+                                  <Save className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingBalanceId(null)}
+                                  className="p-1.5 rounded-lg bg-surface-elevated hover:bg-border text-muted-foreground transition-colors"
+                                  title="Cancel"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleStartEditBalance(item)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-elevated hover:bg-forest/15 text-muted-foreground hover:text-forest text-[11px] font-bold border border-border hover:border-forest/40 transition-colors"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Adjust</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Accounting Invariant Notice */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-forest/10 via-surface to-transparent border border-forest/30 text-xs flex items-start gap-3 shadow-xs">
+            <ShieldCheck className="w-5 h-5 text-forest shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold text-foreground">Statutory Carryforward Invariant</div>
+              <div className="text-muted-foreground mt-0.5 leading-relaxed">
+                Under Ethiopian corporate treasury standards, each fiscal year's ending reconciled balance forms the immutable opening balance for the subsequent year. Daily bank statement reconciliations bridge directly from this opening ledger using: 
+                <span className="font-mono font-bold text-foreground ml-1">
+                  Reconciled Balance = Annual Beginning Balance + Σ(Inflows) - Σ(Outflows)
+                </span>.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Signature Dark Cards Metric Showcase (User Requested Style) */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Card 1: Bank Portfolio Balance */}
         <div className="rounded-2xl p-5 bg-[#0E1712] text-white border border-[#22C55E]/40 shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-28 h-28 bg-[#22C55E]/15 rounded-full blur-2xl pointer-events-none" />
@@ -483,6 +919,39 @@ export const ReconciliationPage: React.FC = () => {
             <span>Bank fees, taxes or unposted wires</span>
           </div>
         </div>
+      </div>
+
+      {/* Annual Beginning Balance Anchor for Selected Account */}
+      <div className="p-3.5 rounded-2xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-forest/15 text-forest flex items-center justify-center font-bold shrink-0">
+            <Landmark className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-foreground">FY 2026 Certified Beginning Balance:</span>
+              <span className="font-extrabold text-forest font-mono">
+                ETB {(activeBankBeginningBalance?.beginningBalanceETB || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest/15 text-forest font-bold border border-forest/30">
+                {activeBankBeginningBalance?.openingBalanceVoucherRef || 'OPB-2026-CERTIFIED'}
+              </span>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Anchor for {activeBankAccount?.bankName}. Reconciled Balance = Beginning Balance + Inflows - Outflows.
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setSelectedFiscalYear(2026)
+            setActiveViewMode('annual_balances')
+          }}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-forest/10 hover:bg-forest/20 text-forest font-bold text-xs transition-colors shrink-0 self-end sm:self-auto"
+        >
+          <span>View Annual Ledger</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* 10 Bank Accounts Selector Strip */}
@@ -775,6 +1244,8 @@ export const ReconciliationPage: React.FC = () => {
           </div>
         </div>
       )}
+    </>
+  )}
 
       {/* IMPORT STATEMENT MODAL DIALOG (.xlsx, .pdf, .docx) */}
       {isUploadModalOpen && (
@@ -871,6 +1342,25 @@ export const ReconciliationPage: React.FC = () => {
                       className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border focus:outline-none focus:ring-1 focus:ring-[#22C55E]"
                     />
                   </div>
+                </div>
+
+                {/* Download Bank Statement Template Banner */}
+                <div className="p-3.5 rounded-2xl bg-forest/10 border border-forest/30 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <FileSpreadsheet className="w-5 h-5 text-forest shrink-0" />
+                    <div>
+                      <div className="font-bold text-foreground">Need the Official Bank Statement Format?</div>
+                      <div className="text-[11px] text-muted-foreground">Download pre-formatted Excel / CSV template with CBE, Awash, &amp; Dashen sample rows.</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => downloadImportTemplate('bankStatement')}
+                    className="px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs flex items-center gap-1.5 shrink-0 shadow-xs transition-all active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Template</span>
+                  </button>
                 </div>
 
                 {/* Upload Drag & Drop Area */}
@@ -1229,6 +1719,207 @@ export const ReconciliationPage: React.FC = () => {
                 className="px-5 py-2 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] text-[#060B08] font-bold shadow-md active:scale-95 transition-all"
               >
                 Post to Ledger &amp; Reconcile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DOWNLOADABLE IMPORT TEMPLATES MODAL */}
+      {isDownloadTemplatesModalOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-surface border border-border rounded-3xl w-full max-w-4xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 my-8">
+            <div className="flex items-start justify-between pb-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-forest/15 text-forest flex items-center justify-center font-bold">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-foreground text-lg">
+                    Zarima ERP &bull; Official Downloadable Import Templates
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Pre-formatted CSV templates with UTF-8 BOM encoding for seamless 1-click opening in Microsoft Excel without character corruption.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDownloadTemplatesModalOpen(false)}
+                className="p-2 rounded-xl hover:bg-surface-elevated text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Batch Download Header */}
+            <div className="p-3.5 rounded-2xl bg-forest/10 border border-forest/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-forest shrink-0" />
+                <span className="font-semibold text-foreground">
+                  Need all templates? Download the complete operational template suite for Zarima Trading.
+                </span>
+              </div>
+              <button
+                onClick={handleDownloadAllTemplates}
+                className="px-4 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95 shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download All 6 Templates</span>
+              </button>
+            </div>
+
+            {/* Grid of Templates */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+              {Object.values(IMPORT_TEMPLATES).map((tmpl) => (
+                <div
+                  key={tmpl.id}
+                  className="p-4 rounded-2xl border border-border bg-surface-elevated/40 hover:border-forest/40 transition-all flex flex-col justify-between space-y-3"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-forest/15 text-forest border border-forest/30">
+                        {tmpl.category}
+                      </span>
+                      <span className="font-mono text-[10px] text-muted-foreground">{tmpl.filename}</span>
+                    </div>
+                    <h4 className="font-bold text-foreground text-sm">{tmpl.title}</h4>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                      {tmpl.description}
+                    </p>
+
+                    <div className="mt-2.5">
+                      <div className="text-[10px] font-bold text-foreground mb-1 uppercase tracking-wider">Columns ({tmpl.headers.length}):</div>
+                      <div className="flex flex-wrap gap-1">
+                        {tmpl.headers.map((h, i) => (
+                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border text-muted-foreground font-mono">
+                            {h.split('(')[0].trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-border flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">
+                      {tmpl.sampleRows.length} sample rows included
+                    </span>
+                    <button
+                      onClick={() => downloadImportTemplate(tmpl.id as any)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-forest hover:bg-forest-dark text-white text-xs font-bold shadow-xs transition-all active:scale-95"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download CSV</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-border flex justify-end">
+              <button
+                onClick={() => setIsDownloadTemplatesModalOpen(false)}
+                className="px-5 py-2 rounded-xl bg-surface-elevated hover:bg-border text-foreground font-bold text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD ANNUAL BEGINNING BALANCE MODAL */}
+      {isAddBalanceModalOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-start justify-between pb-3 border-b border-border">
+              <div>
+                <h3 className="font-bold text-foreground text-base">Add Annual Beginning Balance</h3>
+                <p className="text-xs text-muted-foreground">Record audited opening balance for a corporate bank account.</p>
+              </div>
+              <button
+                onClick={() => setIsAddBalanceModalOpen(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-foreground mb-1">Fiscal Year *</label>
+                <select
+                  value={newBalanceYear}
+                  onChange={(e) => setNewBalanceYear(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border font-bold"
+                >
+                  <option value={2026}>FY 2026 (2018 E.C. - Active)</option>
+                  <option value={2025}>FY 2025 (2017 E.C. - Audited)</option>
+                  <option value={2024}>FY 2024 (2016 E.C. - Archived)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-foreground mb-1">Bank Account *</label>
+                <select
+                  value={newBalanceBankId}
+                  onChange={(e) => setNewBalanceBankId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border"
+                >
+                  {bankAccounts.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.bankName} — Acc: {b.accountNumber}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-foreground mb-1">Beginning Balance (ETB) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newBalanceAmount}
+                  onChange={(e) => setNewBalanceAmount(e.target.value)}
+                  placeholder="e.g. 12540000"
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-foreground mb-1">Opening Balance Voucher Ref *</label>
+                <input
+                  type="text"
+                  value={newBalanceVoucher}
+                  onChange={(e) => setNewBalanceVoucher(e.target.value)}
+                  placeholder="e.g. OPB-2026-CBE-01"
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-foreground mb-1">Auditor Notes</label>
+                <input
+                  type="text"
+                  value={newBalanceNotes}
+                  onChange={(e) => setNewBalanceNotes(e.target.value)}
+                  placeholder="e.g. Verified by External Audit Partner"
+                  className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
+              <button
+                onClick={() => setIsAddBalanceModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-muted-foreground hover:bg-surface-elevated font-semibold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddNewBeginningBalance}
+                className="px-5 py-2 rounded-xl bg-forest hover:bg-forest-dark text-white font-bold text-xs shadow-md transition-all active:scale-95"
+              >
+                Save Beginning Balance
               </button>
             </div>
           </div>

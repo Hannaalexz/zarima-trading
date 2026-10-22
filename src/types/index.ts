@@ -258,6 +258,21 @@ export interface FuelExpense {
   memberExpenseId?: string
 }
 
+export interface AnnualBeginningBalance {
+  id: string
+  fiscalYear: number // e.g. 2026, 2025, 2024
+  fiscalYearName: string // e.g. "FY 2026 (2018 E.C.)"
+  startDate: string
+  bankAccountId: string
+  bankName: string
+  accountNumber: string
+  beginningBalanceETB: number
+  openingBalanceVoucherRef?: string
+  verifiedBy?: string
+  status: 'Audited & Locked' | 'Verified' | 'Draft' | 'Audited'
+  notes?: string
+}
+
 // Finance & Accounting Types
 export interface BankAccount {
   id: string
@@ -268,6 +283,9 @@ export interface BankAccount {
   balanceETB: number
   lastReconciledDate: string
   status: 'Active' | 'Pending Review'
+  annualBeginningBalances?: {
+    [year: number]: number
+  }
 }
 
 export type TransactionType = 'Income' | 'Expense' | 'Transfer' | 'Member Reimbursement' | 'Capital Contribution' | 'Partner Funded'

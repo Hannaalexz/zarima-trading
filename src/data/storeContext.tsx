@@ -26,6 +26,7 @@ import {
   FleetPurchase,
   MasterProduct,
   MasterDepot,
+  AnnualBeginningBalance,
 } from '@/types'
 import {
   mockPurchases,
@@ -45,6 +46,7 @@ import {
 } from './mock/fleetData'
 import {
   mockBankAccounts,
+  mockAnnualBeginningBalances,
   mockTransactions,
   mockReconciliations,
   mockPayroll,
@@ -132,6 +134,9 @@ interface StoreContextType {
 
   bankAccounts: BankAccount[]
   updateBankAccountBalance: (accountId: string, newBalance: number) => void
+  annualBeginningBalances: AnnualBeginningBalance[]
+  updateAnnualBeginningBalance: (id: string, newBalance: number, notes?: string) => void
+  addAnnualBeginningBalance: (balance: Omit<AnnualBeginningBalance, 'id'>) => void
   transactions: FinancialTransaction[]
   addTransaction: (tx: Omit<FinancialTransaction, 'id'>) => void
   reconciliations: BankReconciliation[]
@@ -194,9 +199,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [fuelExpenses, setFuelExpenses] = useState<FuelExpense[]>(mockFuelExpenses)
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(mockBankAccounts)
+  const [annualBeginningBalances, setAnnualBeginningBalances] = useState<AnnualBeginningBalance[]>(mockAnnualBeginningBalances)
   const [transactions, setTransactions] = useState<FinancialTransaction[]>(mockTransactions)
   const [reconciliations, setReconciliations] = useState<BankReconciliation[]>(mockReconciliations)
   const [payroll, setPayroll] = useState<PayrollEntry[]>(mockPayroll)
+
+  const updateAnnualBeginningBalance = (id: string, newBalance: number, notes?: string) => {
+    setAnnualBeginningBalances((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              beginningBalanceETB: newBalance,
+              notes: notes ?? item.notes,
+              status: 'Audited' as const,
+            }
+          : item
+      )
+    )
+  }
+
+  const addAnnualBeginningBalance = (balance: Omit<AnnualBeginningBalance, 'id'>) => {
+    const newRecord: AnnualBeginningBalance = {
+      ...balance,
+      id: `ABB-${Date.now().toString().slice(-4)}`,
+    }
+    setAnnualBeginningBalances((prev) => [newRecord, ...prev])
+  }
 
   // Master Data & Configuration State
   const [products, setProducts] = useState<MasterProduct[]>(mockMasterProducts)
@@ -1828,6 +1857,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteDepot,
         bankAccounts,
         updateBankAccountBalance,
+        annualBeginningBalances,
+        updateAnnualBeginningBalance,
+        addAnnualBeginningBalance,
         transactions,
         addTransaction,
         reconciliations,
